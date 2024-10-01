@@ -1,0 +1,88 @@
+---
+// src/components/Carousel.astro
+import { Image } from 'astro:assets';
+
+interface CarouselItem {
+  id: number;
+  title: string;
+  description: string;
+  image: ImageMetadata;
+}
+
+interface Props {
+  items: CarouselItem[];
+}
+
+const { items } = Astro.props;
+---
+
+<div class="relative" data-slide-motion="slide">
+  <div class="slides-container mb-14 grid touch-manipulation snap-x snap-mandatory grid-flow-col gap-0 overflow-auto overflow-y-hidden scroll-smooth" style="grid-auto-columns: 100% !important;" data-slide-container>
+    {items.map((item) => (
+      <div class="snap-start w-full p-6 duration-1000 ease-in-out">
+        <Image src={item.image} alt={item.title} class="w-full h-64 object-cover rounded-lg" />
+        <h3 class="text-xl font-semibold mt-4">{item.title}</h3>
+        <p class="text-gray-600">{item.description}</p>
+      </div>
+    ))}
+  </div>
+
+  <button type="button" class="group absolute -left-5 top-0 z-20 flex h-full cursor-pointer items-center justify-center focus:outline-none" data-slide-previous>
+    <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-black">
+      <svg aria-hidden="true" class="h-6 w-6 font-black text-white dark:text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+      </svg>
+      <span class="sr-only">Previous</span>
+    </span>
+  </button>
+  <button type="button" class="group absolute -right-5 top-0 z-20 flex h-full cursor-pointer items-center justify-center focus:outline-none" data-slide-next>
+    <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-black">
+      <svg aria-hidden="true" class="h-6 w-6 text-white dark:text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+      </svg>
+      <span class="sr-only">Next</span>
+    </span>
+  </button>
+</div>
+
+<style>
+  .slides-container {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .slides-container::-webkit-scrollbar {
+    display: none;
+  }
+</style>
+
+<script>
+  const slideContainers = document.querySelectorAll("[data-slide-container]");
+  const slideDistance = window.screen.availWidth / 1.5;
+
+  slideContainers.forEach((container) => {
+    const parentElement = container.parentElement;
+    if (!parentElement) return;
+
+    const containerMotion = parentElement.getAttribute("data-slide-motion");
+    if (containerMotion === "slide") {
+      setInterval(function () {
+        container.scrollLeft += slideDistance;
+      }, 5000);
+    }
+
+    const nextButton = parentElement.querySelector("[data-slide-next]");
+    const previousButton = parentElement.querySelector("[data-slide-previous]");
+
+    if (nextButton) {
+      nextButton.addEventListener("click", () => {
+        container.scrollLeft += slideDistance;
+      });
+    }
+
+    if (previousButton) {
+      previousButton.addEventListener("click", () => {
+        container.scrollLeft -= slideDistance;
+      });
+    }
+  });
+</script>
