@@ -25,26 +25,26 @@
             description: 'Revolutionary blockchain projects for financial inclusion',
             link: '/projects/defi'
         },
-		// {
-        //     alt: 'Business Innovation',
-        //     src: Banner1,
-        //     title: 'Empowering SMEs',
-        //     description: 'Innovative solutions for small and medium enterprises',
-        //     link: '/projects/sme-innovation'
-        // },
+		{
+            alt: 'Business Innovation',
+            src: Banner1,
+            title: 'Empowering SMEs',
+            description: 'Innovative solutions for small and medium enterprises',
+            link: '/projects/sme-innovation'
+        },
         {
             alt: 'FinTech Solutions',
             src: Banner4,
             title: 'Mobile Banking',
             description: 'Next-generation financial technology for all',
             link: '/projects/mobile-banking'
-        // },
-		// {
-        //     alt: 'Climate Change Initiative',
-        //     src: Banner2,
-        //     title: 'Green Energy Solutions',
-        //     description: 'Sustainable projects tackling climate change',
-        //     link: '/projects/green-energy'
+        },
+		{
+            alt: 'Climate Change Initiative',
+            src: Banner2,
+            title: 'Green Energy Solutions',
+            description: 'Sustainable projects tackling climate change',
+            link: '/projects/green-energy'
         }
     ];
 
@@ -76,7 +76,7 @@
     });
 </script>
 
-<div class="relative w-full h-[400px] md:h-[500px] overflow-hidden rounded-lg">
+<div class="relative w-full h-[200px] lg:h-[400px] overflow-hidden rounded-2xl">
     {#each images as image, index}
         {#if index === currentIndex}
             <div
@@ -84,11 +84,11 @@
                 in:fade={{ duration: 300 }}
                 out:fade={{ duration: 300 }}
             >
-                <img src={image.src} alt={image.alt} class="w-full h-full object-cover" />
-                <div class="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-center items-center text-white p-4 opacity-0 hover:opacity-100 transition-opacity duration-300">
-                    <h2 class="text-2xl font-bold mb-2">{image.title}</h2>
-                    <p class="text-center mb-4">{image.description}</p>
-                    <a href={image.link} class="bg-primary text-white px-4 py-2 rounded-md hover:bg-opacity-80 transition-colors">
+                <img src={image.src} loading="lazy" alt={image.alt} class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-center items-center text-white p-4  opacity-100 transition-opacity duration-300">
+                    <h2 class="text-lg lg:text-2xl font-bold mb-2">{image.title}</h2>
+                    <p class="text-center mb-4 text-sm lg:text-base">{image.description}</p>
+                    <a href={image.link} class="bg-primary text-white px-4 py-2 text-sm rounded-md hover:bg-opacity-80 transition-colors">
                         Learn More
                     </a>
                 </div>

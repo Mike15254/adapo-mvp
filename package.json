@@ -1,5 +1,5 @@
 {
-	"name": "adapo",
+	"name": "adapo-mvp",
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
@@ -21,6 +21,8 @@
 		"eslint": "^9.0.0",
 		"eslint-config-prettier": "^9.1.0",
 		"eslint-plugin-svelte": "^2.36.0",
+		"flowbite": "^2.5.2",
+		"flowbite-svelte": "^0.46.22",
 		"globals": "^15.0.0",
 		"postcss": "^8.4.47",
 		"prettier": "^3.1.1",

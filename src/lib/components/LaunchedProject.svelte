@@ -87,8 +87,8 @@ function calculateProgress(raised: number, goal: number) {
 }
 </script>
 
-<section class="py-16 max-w-7xl mx-auto px-2">
-  <div class="container mx-auto px-2">
+<!-- <section class=" mx-auto px-2"> -->
+  <div class="container mx-auto px-2 py-16 max-w-7xl">
     <h1 class="text-3xl font-medium mb-6">Just Launched Projects</h1>
     <p class="mb-6 text-sm text-gray-600 lg:text-base">
       These pitches are the newest to launch on the platform. You'll find many more investment opportunities in the 
@@ -144,7 +144,7 @@ function calculateProgress(raised: number, goal: number) {
       </button>
     </div>
   </div>
-</section>
+<!-- </section> -->
 
 <style>
   .group:hover :global(.group-hover\:opacity-100) {
