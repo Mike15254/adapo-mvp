@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import image1 from '$lib/assets/blockchain.avif'
+  import image1 from '$lib/assets/blockChain.avif'
 
   export let project = {
       id: "defi",
