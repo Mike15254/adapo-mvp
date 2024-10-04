@@ -82,7 +82,7 @@
             <div class="bg-primary text-white p-8 rounded-lg text-center">
                 <h2 class="text-3xl font-bold mb-4">Ready to Grow Your Business?</h2>
                 <p class="mb-6">Apply now to start your fundraising journey with Adapo.</p>
-                <a href="/apply" class="bg-white text-primary px-6 py-3 rounded-md font-semibold hover:bg-gray-100 transition-colors">Apply to Raise</a>
+                <a href="/auth/signup" class="bg-white text-primary px-6 py-3 rounded-md font-semibold hover:bg-gray-100 transition-colors">Apply to Raise</a>
             </div>
         </div>
     </section>

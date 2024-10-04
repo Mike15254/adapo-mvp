@@ -3,7 +3,7 @@
     import { fade } from 'svelte/transition';
 
     import Banner1 from '$lib/assets/image1.avif';
-    import Banner2 from '$lib/assets/climate-change.avif';
+    import Banner2 from '$lib/assets/eduTech.avif';
     import Banner3 from '$lib/assets/blockChain.avif';
     import Banner4 from '$lib/assets/finTech.avif';
 
@@ -25,26 +25,20 @@
             description: 'Revolutionary blockchain projects for financial inclusion',
             link: '/projects/defi'
         },
-		{
-            alt: 'Business Innovation',
-            src: Banner1,
-            title: 'Empowering SMEs',
-            description: 'Innovative solutions for small and medium enterprises',
-            link: '/projects/sme-innovation'
+        
+        {
+            alt: 'EduTech Platform',
+            src: Banner2,
+            title: 'EduTech Platform',
+            description: 'AI-driven personalized learning for K-12 students',
+            link: '/projects/edutech'
         },
         {
             alt: 'FinTech Solutions',
             src: Banner4,
             title: 'Mobile Banking',
             description: 'Next-generation financial technology for all',
-            link: '/projects/mobile-banking'
-        },
-		{
-            alt: 'Climate Change Initiative',
-            src: Banner2,
-            title: 'Green Energy Solutions',
-            description: 'Sustainable projects tackling climate change',
-            link: '/projects/green-energy'
+            link: '/projects/mobilebanking'
         }
     ];
 
@@ -99,7 +93,7 @@
     <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
         {#each images as _, index}
             <button
-                class="w-12 h-1 rounded-lg bg-gray-200  hover:opacity-100 transition-opacity duration-200 {index === currentIndex ? 'opacity-20' : ''}"
+                class="w-16 h-1 rounded-lg bg-gray-200  hover:opacity-100 transition-opacity duration-200 {index === currentIndex ? 'opacity-20' : ''}"
                 on:click={() => currentIndex = index}
             ></button>
         {/each}

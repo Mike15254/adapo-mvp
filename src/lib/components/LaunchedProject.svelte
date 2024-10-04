@@ -63,7 +63,7 @@ import LaunchedProject from './LaunchedProject.svelte';
     minInvestment: 10000,
   },
   {
-    id: "moneymove",
+    id: "mobilebanking",
     title: "Money Move",
     description: "Next-generation mobile money platform with advanced financial services",
     image: moneymoveImage,
@@ -89,10 +89,10 @@ function calculateProgress(raised: number, goal: number) {
 
 <!-- <section class=" mx-auto px-2"> -->
   <div class="container mx-auto px-2 py-16 max-w-7xl">
-    <h1 class="text-3xl font-medium mb-6">Just Launched Projects</h1>
+    <h1 class="text-3xl font-medium mb-6">Ongoing Campaings</h1>
     <p class="mb-6 text-sm text-gray-600 lg:text-base">
       These pitches are the newest to launch on the platform. You'll find many more investment opportunities in the 
-      <a href="/" class="text-primary underline underline-offset-2">full marketplace</a>. 
+      <a href="/invest" class="text-primary underline underline-offset-2">full marketplace</a>. 
       If you want to learn more, check out our introduction to investing.
     </p>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -139,9 +139,9 @@ function calculateProgress(raised: number, goal: number) {
       {/each}
     </div>
     <div class="flex justify-center pt-8"> 
-      <button class="bg-primary text-white px-4 py-2 rounded-md hover:bg-indigo-600 transition-colors">
+      <!-- <button class="bg-primary text-white px-4 py-2 rounded-md hover:bg-indigo-600 transition-colors">
         View More Project Pitches
-      </button>
+      </button> -->
     </div>
   </div>
 <!-- </section> -->

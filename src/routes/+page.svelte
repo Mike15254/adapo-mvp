@@ -22,12 +22,12 @@
             the growth of emerging markets.
           </p>
           <div class="pt-6 lg:pt-4 flex items-center  gap-x-6">
-            <a href="/"
+            <a href="/invest"
                 class="rounded-md bg-primary px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-600">
                 Start Investing
             </a>
-            <a href="/" class="text-sm font-semibold leading-6 text-gray-900">
-                Learn more
+            <a href="/raise" class="text-sm font-semibold leading-6 text-gray-900">
+                Raise Funds
                 <span>→</span>
             </a>
         </div>
