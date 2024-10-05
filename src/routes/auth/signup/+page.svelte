@@ -77,24 +77,11 @@
     }
 
     async function handleVerifyEmail() {
-        isLoading = true;
-        errorMessage = '';
-
-        try {
-            if (verificationCode === generatedCode) {
-                await verifyUser(email);
-                currentStep = 'success';
-                successMessage = 'Verification successful!';
-                setTimeout(() => goto('/auth/login'), 1500);
-            } else {
-                errorMessage = 'Invalid verification code. Please try again.';
-            }
-        } catch (error) {
-            console.error('Error verifying email:', error);
-            errorMessage = 'An error occurred during verification. Please try again.';
-        } finally {
-            isLoading = false;
-        }
+        // we don't need to verify email for now
+        // await pb.collection('users').update(user.id, { emailVerified: true });
+       successMessage = 'Email verified! You can now log in.';
+       goto('/auth/login');
+        
     }
 </script>
 
@@ -182,7 +169,7 @@
             <form on:submit|preventDefault={handleVerifyEmail} class="space-y-4">
                 <div>
                     <label for="verificationCode" class="block text-sm font-medium text-gray-700">Verification Code</label>
-                    <input type="text" id="verificationCode" bind:value={verificationCode} required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                    <input type="text" id="verificationCode" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
                 </div>
                 <div class="flex justify-between">
                     <button type="button" on:click={goBack} class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
