@@ -18,25 +18,20 @@ export const authStore = writable<AuthState>({
 export class AuthService {
     static async register(data: RegisterData) {
         try {
-            // Create base user
-            const userData = {
+            const user = await pb.collection('users').create({
                 ...data,
                 account_status: 'pending',
-                verification_status: 'unverified',
-                registration_date: new Date().toISOString(),
-            };
+                verification_status: 'unverified'
+            });
 
-            const user = await pb.collection('users').create(userData);
-
-            // Auto login after registration
+            // Login after registration
             await this.login(data.email, data.password);
-
             return user;
         } catch (error) {
-            const apiError = error as ApiError;
-            throw new Error(apiError.response?.message || 'Registration failed');
+            throw error;
         }
     }
+
 
     static async login(email: string, password: string) {
         try {
