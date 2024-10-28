@@ -45,6 +45,7 @@
             Some of the top names in venture capital have invested in the same companies that raise on Adapo
         </p>
         <div 
+        role="region"
             class="flex overflow-hidden mt-8 py-12" 
             bind:this={scrollContainer}
             on:mouseenter={handleMouseEnter}
