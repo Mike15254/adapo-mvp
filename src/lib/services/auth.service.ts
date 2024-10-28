@@ -1,85 +1,111 @@
-import { pb, clearAuth } from '../pocketbase';
-import type { AuthUser } from '../types/auth.types';
+// src/lib/services/auth.service.ts
+import { pb } from '../pocketbase';
+import type { RegisterData, ApiError, AuthState } from '../types/auth.types';
 import { browser } from '$app/environment';
+import { goto } from '$app/navigation';
+import { onboardingStore } from '../stores/onboardingStore';
+import { userType } from '../stores/userStore';
+import { writable } from 'svelte/store';
+
+// Create auth store
+export const authStore = writable<AuthState>({
+    user: null,
+    token: null,
+    isLoading: true,
+    isAuthenticated: false
+});
 
 export class AuthService {
+    static async register(data: RegisterData) {
+        try {
+            // Create base user
+            const userData = {
+                ...data,
+                account_status: 'pending',
+                verification_status: 'unverified',
+                registration_date: new Date().toISOString(),
+            };
+
+            const user = await pb.collection('users').create(userData);
+
+            // Auto login after registration
+            await this.login(data.email, data.password);
+
+            return user;
+        } catch (error) {
+            const apiError = error as ApiError;
+            throw new Error(apiError.response?.message || 'Registration failed');
+        }
+    }
+
     static async login(email: string, password: string) {
         try {
             const authData = await pb.collection('users').authWithPassword(email, password);
 
             if (browser) {
-                // Set cookie for server-side auth
                 document.cookie = `pb_auth=${JSON.stringify({
                     token: authData.token,
                     model: authData.record
                 })}; path=/; max-age=2592000; SameSite=Strict${
                     window.location.protocol === 'https:' ? '; Secure' : ''
                 }`;
+
+                // Update auth store
+                authStore.set({
+                    user: authData.record,
+                    token: authData.token,
+                    isLoading: false,
+                    isAuthenticated: true
+                });
             }
 
             return authData;
-        } catch (error: any) {
-            console.error('Login error:', error);
-            
-            // Handle specific error cases
-            if (error.status === 400) {
-                throw new Error('Invalid email or password');
-            } else if (error.status === 0) {
-                throw new Error('Network error. Please check your connection.');
-            }
-            
-            throw error;
-        }
-    }
-
-    static async register(userData: {
-        email: string;
-        password: string;
-        passwordConfirm: string;
-        name: string;
-        role: 'investor' | 'startup';
-    }) {
-        try {
-            const user = await pb.collection('users').create({
-                ...userData,
-                account_status: 'pending',
-                verification_status: 'unverified',
-                registration_date: new Date().toISOString(),
-            });
-
-            if (user) {
-                await this.login(userData.email, userData.password);
-            }
-
-            return user;
         } catch (error) {
-            console.error('Registration error:', error);
-            throw error;
+            const apiError = error as ApiError;
+            throw new Error(apiError.response?.message || 'Login failed');
         }
     }
 
     static async logout() {
         try {
+            // Clear PocketBase auth
+            pb.authStore.clear();
+
+            // Clear auth store
+            authStore.set({
+                user: null,
+                token: null,
+                isLoading: false,
+                isAuthenticated: false
+            });
+
+            // Clear stores
+            onboardingStore.reset();
+            userType.set('investor');
+
+            // Clear localStorage and cookies
             if (browser) {
+                // Clear localStorage
+                localStorage.removeItem('onboarding_progress');
+
+                // Clear cookies
                 document.cookie = 'pb_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
             }
-            clearAuth();
+
+            // Redirect to home
+            await goto('/');
         } catch (error) {
             console.error('Logout error:', error);
-            throw error;
-        }
-    }
-
-    static async updateProfile(userId: string, data: Partial<AuthUser>) {
-        try {
-            return await pb.collection('users').update(userId, data);
-        } catch (error) {
-            console.error('Update profile error:', error);
-            throw error;
+            // Still try to redirect even if there's an error
+            await goto('/');
         }
     }
 
     static isAuthenticated(): boolean {
         return pb.authStore.isValid;
+    }
+
+    static getCurrentUser() {
+        return pb.authStore.model;
     }
 }

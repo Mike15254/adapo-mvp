@@ -4,6 +4,7 @@
     import { authStore } from '$lib/stores/authStore';
     import logo from "../assets/adapo-logo.png";
     import { goto } from '$app/navigation';
+	import { AuthService } from '$lib/services/auth.service';
     
     interface NavItem {
       label: string;
@@ -32,12 +33,7 @@
       if (isProfileMenuOpen) isMobileMenuOpen = false;
     }
   
-    async function handleLogout(): Promise<void> {
-      authStore.logout();
-      isProfileMenuOpen = false;
-      isMobileMenuOpen = false;
-      await goto('/');
-    }
+  
   
     // Generate initials avatar URL using DiceBear
     function getAvatarUrl(name: string, email: string): string {
@@ -49,6 +45,14 @@
     
     $: avatarUrl = $authStore.user ? 
       getAvatarUrl($authStore.user.name, $authStore.user.email) : '';
+
+      async function handleLogout() {
+        try {
+            await AuthService.logout();
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    }
   </script>
   
   <header class="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-lg">

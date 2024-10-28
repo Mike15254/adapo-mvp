@@ -9,6 +9,9 @@
         LogOut,
         Home
     } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
+	import { pb } from '$lib/pocketbase';
+	import { AuthService } from '$lib/services/auth.service';
 
     export let data: LayoutData;
     
@@ -39,8 +42,15 @@
 
     let isMobileMenuOpen = false;
 
-    function handleLogout() {
-        // Implement logout logic
+    async function handleLogout() {
+        try {
+            await AuthService.logout();
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    }
+    function getIconClasses(isActive: boolean): string {
+        return `h-6 w-6 shrink-0 ${isActive ? 'text-indigo-600' : 'text-gray-400'}`;
     }
 </script>
 
@@ -69,10 +79,11 @@
                                         class:hover:text-indigo-600={$page.url.pathname !== item.href}
                                         class:hover:bg-gray-50={$page.url.pathname !== item.href}
                                     >
-                                        <svelte:component
-                                            this={item.icon}
-                                            class="h-6 w-6 shrink-0"
-                                        />
+                                    <svelte:component
+                                    this={item.icon}
+                                    strokeWidth={1.5}
+                                    class={getIconClasses($page.url.pathname === item.href)}
+                                />
                                         {item.label}
                                     </a>
                                 </li>
@@ -194,16 +205,17 @@
                                             <li>
                                                 <a
                                                     href={item.href}
-                                                    class="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6"
+                                                    class="group flex gap-x-3 round ed-md p-2 text-sm font-semibold leading-6"
                                                     class:text-indigo-600={$page.url.pathname === item.href}
                                                     class:bg-indigo-50={$page.url.pathname === item.href}
                                                     class:text-gray-700={$page.url.pathname !== item.href}
                                                     on:click={() => isMobileMenuOpen = false}
                                                 >
-                                                    <svelte:component
-                                                        this={item.icon}
-                                                        class="h-6 w-6 shrink-0"
-                                                    />
+                                                <svelte:component
+                                                this={item.icon}
+                                                strokeWidth={1.5}
+                                                class={getIconClasses($page.url.pathname === item.href)}
+                                            />
                                                     {item.label}
                                                 </a>
                                             </li>

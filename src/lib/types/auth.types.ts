@@ -1,16 +1,35 @@
-import type { Record } from 'pocketbase'
+// src/lib/types/auth.types.ts
+import type { Record } from 'pocketbase';
 
 export interface AuthUser extends Record {
     email: string;
     name: string;
-    profile_picture?: string;
     role: 'investor' | 'startup';
-    account_status: 'pending' | 'active' | 'suspended';
+    username: string;
+    profile_picture?: string;
     verification_status: 'unverified' | 'pending' | 'verified';
-    registration_date: string;
+    account_status: 'pending' | 'active' | 'suspended';
 }
 
-export type AuthState = {
+export interface RegisterData {
+    email: string;
+    password: string;
+    passwordConfirm: string;
+    name: string;
+    role: 'investor' | 'startup';
+    username: string;
+}
+
+export interface ApiError {
+    status?: number;
+    response?: {
+        message?: string;
+        data?: any;
+    };
+    message?: string;
+}
+
+export interface AuthState {
     user: AuthUser | null;
     token: string | null;
     isLoading: boolean;

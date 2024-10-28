@@ -1,32 +1,44 @@
-export function validateEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+type ValidationRule = {
+  validate: (value: string) => boolean;
+  message: string;
+};
+
+const validationRules: Record<string, ValidationRule> = {
+  email: {
+      validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      message: 'Please enter a valid email address'
+  },
+  password: {
+      validate: (value) => value.length >= 8,
+      message: 'Password must be at least 8 characters'
+  },
+  name: {
+      validate: (value) => value.length >= 2,
+      message: 'Name must be at least 2 characters'
+  },
+  company_name: {
+      validate: (value) => value.length >= 2,
+      message: 'Company name must be at least 2 characters'
+  },
+  business_registration_number: {
+      validate: (value) => value.length >= 5,
+      message: 'Please enter a valid registration number'
+  },
+  id_number: {
+      validate: (value) => value.length >= 5,
+      message: 'Please enter a valid ID number'
+  },
+  kra_pin: {
+      validate: (value) => value.length >= 5,
+      message: 'Please enter a valid KRA PIN'
   }
+};
+
+export const validate = (field: string, value: string): string | null => {
+  if (!value) return 'This field is required';
   
-  export function validatePassword(password: string): { valid: boolean; message: string } {
-    if (password.length < 8) {
-      return { valid: false, message: 'Password must be at least 8 characters long' };
-    }
-    if (!/[A-Z]/.test(password)) {
-      return { valid: false, message: 'Password must contain at least one uppercase letter' };
-    }
-    if (!/[a-z]/.test(password)) {
-      return { valid: false, message: 'Password must contain at least one lowercase letter' };
-    }
-    if (!/[0-9]/.test(password)) {
-      return { valid: false, message: 'Password must contain at least one number' };
-    }
-    return { valid: true, message: '' };
-  }
+  const rule = validationRules[field];
+  if (!rule) return null;
   
-  export function validateKRAPin(pin: string): boolean {
-    // Add your KRA PIN validation logic here
-    const kraRegex = /^[A-Z][0-9]{9}[A-Z]$/;
-    return kraRegex.test(pin);
-  }
-  
-  export function validateIDNumber(id: string): boolean {
-    // Add your ID number validation logic here
-    const idRegex = /^[0-9]{8}$/;
-    return idRegex.test(id);
-  }
+  return rule.validate(value) ? null : rule.message;
+};
