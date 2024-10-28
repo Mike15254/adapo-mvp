@@ -3,6 +3,7 @@
     import image1 from '$lib/assets/agriTech.avif';
     import image2 from '$lib/assets/eduTech.avif';
     import image3 from '$lib/assets/finTech.avif';
+	import Navbar from '$lib/components/Navbar.svelte';
 
     interface Opportunity {
         title: string;
@@ -64,6 +65,17 @@
         // Any necessary onMount logic
     });
 </script>
+<div class="bg-gray-300 text-center top-0 mt-0">
+    <p class="p-2 text-sm">
+      Update: We are now in Beta. Please contact us at <a
+        href="mailto:hello@adapo.io"
+        class="underline underline-offset-2">hello@adapo.io</a
+      > for more information.
+    </p>
+  </div>
+		<div  class="sticky top-0 z-50">
+			<Navbar />
+		</div>
 
 <main class="bg-gray-100 min-h-screen">
     <section class="py-16 md:py-24 px-4">

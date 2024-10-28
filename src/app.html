@@ -10,4 +10,18 @@
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
+	<script>
+		// Restore auth state as early as possible
+		try {
+		  const storedAuth = localStorage.getItem('pb_auth');
+		  if (storedAuth) {
+			const { token, model } = JSON.parse(storedAuth);
+			// You can optionally set a global variable to indicate auth state
+			window.__AUTH_INITIALIZED__ = true;
+		  }
+		} catch (error) {
+		  console.error('Error restoring initial auth state:', error);
+		  localStorage.removeItem('pb_auth');
+		}
+	  </script>
 </html>

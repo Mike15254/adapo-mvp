@@ -1,5 +1,7 @@
 <script lang="ts">
+	import Navbar from '$lib/components/Navbar.svelte';
     import { onMount } from 'svelte';
+    import {fade} from 'svelte/transition'
 
     const benefits = [
         { title: "Access to Capital", description: "Connect with a diverse pool of investors ready to fund your vision", icon: "💼" },
@@ -18,6 +20,17 @@
         // Any necessary onMount logic
     });
 </script>
+<div class="bg-gray-300 text-center top-0 mt-0">
+    <p class="p-2 text-sm">
+      Update: We are now in Beta. Please contact us at <a
+        href="mailto:hello@adapo.io"
+        class="underline underline-offset-2">hello@adapo.io</a
+      > for more information.
+    </p>
+  </div>
+		<div class="sticky top-0 z-50">
+			<Navbar />
+		</div>
 
 <main class="bg-gray-100 min-h-screen">
     <section class="py-16 md:py-24 px-4">

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import image1 from '$lib/assets/agriTech.avif'
+	import Navbar from '$lib/components/Navbar.svelte';
 
   export let project = {
       id: "agritech",
@@ -56,7 +57,17 @@
 <svelte:head>
   <title>{project.title} | ADAPO</title>
 </svelte:head>
-
+<div class="bg-gray-300 text-center top-0 mt-0">
+    <p class="p-2 text-sm">
+      Update: We are now in Beta. Please contact us at <a
+        href="mailto:hello@adapo.io"
+        class="underline underline-offset-2">hello@adapo.io</a
+      > for more information.
+    </p>
+  </div>
+		<div  class="sticky top-0 z-50">
+			<Navbar />
+		</div>
 <div class="bg-gray-100 min-h-screen">
   <div class="w-full h-64 bg-cover bg-center" style="background-image: url({image1});">
       <div class="w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
