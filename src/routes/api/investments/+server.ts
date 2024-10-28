@@ -1,6 +1,6 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { pb } from '$lib/pocketbase';
-import type { Investment } from '$lib/types';
+import type { Investment } from '$lib/types/';
 
 export const POST: RequestHandler = async ({ request }) => {
   try {

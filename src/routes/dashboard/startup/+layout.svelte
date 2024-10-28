@@ -1,88 +1,63 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import { fade, fly } from 'svelte/transition';
-    import { authStore } from '$lib/stores/authStore';
+    import { authStore } from '$lib/pocketbase';
     import type { LayoutData } from './$types';
     import {
-        LayoutDashboard, Rocket, BadgeDollarSign, LineChart,
-        Users, User, Settings, LogOut, Bell, Plus,
-        FileText, ClipboardCheck, Home, ChevronDown,
-        Briefcase, AlertTriangle, ChevronRight
+        LayoutDashboard, Rocket, BadgeDollarSign,
+        Users, Settings, LogOut, Plus,
+        FileText, ClipboardCheck
     } from 'lucide-svelte';
     import logo from '$lib/assets/adapo-logo.png';
     
     export let data: LayoutData;
     
-    $: ({ stats, startup } = data);
+    $: ({ startup } = data);
     $: userName = $authStore.user?.name || 'User';
     $: userEmail = $authStore.user?.email || '';
     $: isVerified = startup?.verification_status === 'verified';
     
     let isMobileMenuOpen = false;
-    let isNotificationsOpen = false;
 
     const navigationItems = [
         {
             href: '/dashboard/startup',
             label: 'Overview',
             icon: LayoutDashboard,
-            badge: null,
-            description: 'Dashboard overview and key metrics'
+            badge: null
         },
         {
             href: '/dashboard/startup/projects',
             label: 'Projects',
             icon: Rocket,
-            badge: stats?.activeProjects,
-            description: 'Manage your fundraising projects'
+            badge: data.stats?.activeProjects
         },
         {
             href: '/dashboard/startup/funding',
             label: 'Funding',
             icon: BadgeDollarSign,
-            badge: null,
-            description: 'Track and manage investments'
-        },
-        {
-            href: '/dashboard/startup/investors',
-            label: 'Investors',
-            icon: Users,
-            badge: stats?.totalInvestors,
-            description: 'View and interact with investors'
-        },
-        {
-            href: '/dashboard/startup/updates',
-            label: 'Updates',
-            icon: FileText,
-            badge: null,
-            description: 'Share progress with stakeholders'
+            badge: null
         }
     ];
 
-    const quickActions = [
+    const quickActions = isVerified ? [
         {
             href: '/dashboard/startup/projects/new',
             label: 'New Project',
-            icon: Plus,
-            requiresVerification: true,
-            description: 'Start a new fundraising project'
+            icon: Plus
         },
         {
             href: '/dashboard/startup/updates/new',
             label: 'Post Update',
-            icon: FileText,
-            requiresVerification: true,
-            description: 'Share progress with investors'
-        },
+            icon: FileText
+        }
+    ] : [
         {
             href: '/dashboard/startup/verification',
             label: 'Complete Verification',
-            icon: ClipboardCheck,
-            requiresVerification: false,
-            showIfVerified: false,
-            description: 'Verify your startup profile'
+            icon: ClipboardCheck
         }
-    ].filter(action => isVerified ? action.showIfVerified !== false : !action.requiresVerification);
+    ];
 
     async function handleLogout() {
         await authStore.logout();

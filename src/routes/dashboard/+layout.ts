@@ -1,16 +1,23 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 import { pb } from '$lib/pocketbase';
+import type { AuthUser } from '$lib/types/auth.types';
 
-export const load: LayoutLoad = async () => {
-  const user = pb.authStore.model;
+export const load: LayoutLoad = async ({ parent }) => {
+    const { user, isAuthenticated } = await parent();
 
-  if (!user) {
-    throw redirect(302, '/login');
-  }
+    if (!isAuthenticated || !user) {
+        throw redirect(302, '/login');
+    }
 
-  return {
-    user,
-    role: user.role
-  };
+    const authUser = user as AuthUser;
+
+    // Validate role
+    if (!authUser.role) {
+        throw redirect(302, '/onboarding');
+    }
+
+    return {
+        user: authUser
+    };
 };

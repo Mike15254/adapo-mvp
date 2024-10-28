@@ -1,15 +1,13 @@
 <script lang="ts">
     import type { PageData } from './$types';
     import { 
-        Rocket, Users, BadgeDollarSign, TrendingUp,
-        ArrowUpRight, ArrowDownRight, Plus, Calendar,
-        ChevronRight, AlertTriangle, CheckCircle, Clock
+        Rocket, Users, BadgeDollarSign,
+        ArrowUpRight, Plus, Calendar,
+        CheckCircle, Clock
     } from 'lucide-svelte';
     import { fade } from 'svelte/transition';
     
     export let data: PageData;
-    
-    type ProjectStatus = 'active' | 'pending' | 'draft' | 'completed' | 'funded' | 'closed';
     
     $: ({ stats, startup, projects } = data);
 
@@ -22,19 +20,9 @@
         }).format(amount);
     };
 
-    // Format date with relative time if recent
+    // Format date
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - date.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays <= 7) {
-            if (diffDays === 0) return 'Today';
-            if (diffDays === 1) return 'Yesterday';
-            return `${diffDays} days ago`;
-        }
-
         return date.toLocaleDateString('en-KE', {
             month: 'short',
             day: 'numeric',
@@ -42,54 +30,29 @@
         });
     };
 
-    // Get status color
-    const getStatusColor = (status: ProjectStatus): string => {
-        const colors: Record<ProjectStatus | 'default', string> = {
-            active: 'text-green-600 bg-green-50',
-            pending: 'text-yellow-600 bg-yellow-50',
-            draft: 'text-gray-600 bg-gray-50',
-            completed: 'text-blue-600 bg-blue-50',
-            funded: 'text-purple-600 bg-purple-50',
-            closed: 'text-red-600 bg-red-50',
-            default: 'text-gray-600 bg-gray-50'
-        };
-        
-        return colors[status] || colors.default;
-    };
-
-    // Calculate progress percentage
+    // Calculate progress
     const calculateProgress = (current: number, goal: number): number => {
         if (!current || !goal) return 0;
         return Math.min(Math.round((current / goal) * 100), 100);
     };
 
-    // Format large numbers
-    const formatNumber = (num: number): string => {
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(1) + 'M';
-        }
-        if (num >= 1000) {
-            return (num / 1000).toFixed(1) + 'K';
-        }
-        return num.toString();
-    };
-
-    // Get days remaining
-    const getDaysRemaining = (endDate: string): string => {
-        const end = new Date(endDate);
-        const now = new Date();
-        const diffTime = end.getTime() - now.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Get status color
+    const getStatusColor = (status: string): string => {
+        const colors: Record<string, string> = {
+            active: 'text-green-600 bg-green-50',
+            pending: 'text-yellow-600 bg-yellow-50',
+            draft: 'text-gray-600 bg-gray-50',
+            funded: 'text-purple-600 bg-purple-50',
+            closed: 'text-red-600 bg-red-50'
+        };
         
-        if (diffDays < 0) return 'Ended';
-        if (diffDays === 0) return 'Last day';
-        return `${diffDays} days left`;
+        return colors[status] || colors.draft;
     };
 
-    // Get time of day greeting
+    // Get greeting
     $: greeting = (() => {
         const hour = new Date().getHours();
-        if (hour < 12) return 'Good morning ';
+        if (hour < 12) return 'Good morning';
         if (hour < 18) return 'Good afternoon';
         return 'Good evening';
     })();
