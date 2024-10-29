@@ -293,7 +293,7 @@
         <!-- Main content -->
 
 {#if isLoading}
-<LoadingScreen message="Loading..." />
+<LoadingScreen />
 {:else}
         <main class="py-10 lg:pl-72">
             <div class="px-4 sm:px-6 lg:px-8">

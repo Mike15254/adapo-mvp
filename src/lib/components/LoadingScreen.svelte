@@ -1,5 +1,5 @@
 <script lang="ts">
-	export let message = 'Loading...';
+	export let message = '';
 
 	const loadingSvgs = [
 		// 1. Chart/Analytics Icon
