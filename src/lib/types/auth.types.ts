@@ -11,6 +11,14 @@ export interface AuthUser extends Record {
     account_status: 'pending' | 'active' | 'suspended';
 }
 
+export interface AuthState {
+    user: AuthUser | null;
+    token: string | null;
+    isLoading: boolean;
+    isAuthenticated: boolean;
+    verification_status?: 'unverified' | 'pending' | 'verified'; // Added this
+}
+
 export interface RegisterData {
     email: string;
     password: string;
@@ -27,11 +35,4 @@ export interface ApiError {
         data?: any;
     };
     message?: string;
-}
-
-export interface AuthState {
-    user: AuthUser | null;
-    token: string | null;
-    isLoading: boolean;
-    isAuthenticated: boolean;
 }

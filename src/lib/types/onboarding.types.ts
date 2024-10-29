@@ -9,13 +9,14 @@ export interface OnboardingStore {
     };
 }
 
+// src/lib/types/onboarding.types.ts
 export interface InvestorOnboardingData {
     user: string;
     type: 'individual' | 'institution';
     investment_focus: string;
-    verificationStatus: 'pending' | 'verified' | 'rejected';
-    id_number: string;  // Add this
-    kra_pin: string;  
+    verification_status: 'pending' | 'verified' | 'unverified';
+    id_number: string;
+    kra_pin: string;
 }
 
 export interface StartupOnboardingData {
@@ -23,6 +24,6 @@ export interface StartupOnboardingData {
     company_name: string;
     business_registration_number: string;
     industry: string;
-    verification_status: 'pending' | 'verified' | 'rejected';
+    verification_status: 'pending' | 'verified' | 'unverified';
     description: string;
 }

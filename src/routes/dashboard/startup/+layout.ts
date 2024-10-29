@@ -2,31 +2,83 @@ import { redirect } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 import { pb } from '$lib/pocketbase';
 import type { User, StartupProfile, DashboardStats } from '$lib/types/dashboard.types';
-import type { ClientResponseError } from 'pocketbase';
+import type { RecordModel } from 'pocketbase';
+
+function transformStartupProfile(record: RecordModel): StartupProfile {
+    return {
+        id: record.id,
+        user: record.user,
+        company_name: record.company_name || '',
+        business_registration_number: record.business_registration_number || '',
+        description: record.description || '',
+        industry: record.industry || 'other',
+        verification_documents: record.verification_documents,
+        verification_status: record.verification_status || 'unverified',
+        team_members: record.team_members || [],
+        logo: record.logo,
+        social_links: record.social_links || {},
+        funding_raised_total: record.funding_raised_total || 0,
+        investor_count: record.investor_count || 0,
+        founded_Date: record.founded_Date,
+        pitch_deck: record.pitch_deck,
+        funding_goal: record.funding_goal || 0,
+        funds_raised: record.funds_raised || 0
+    };
+}
+
+async function createStartupProfile(userId: string): Promise<StartupProfile> {
+    try {
+        const record = await pb.collection('startup_profiles').create({
+            user: userId,
+            company_name: '',
+            business_registration_number: '',
+            industry: '',
+            verification_documents: [],
+            verification_status: 'unverified',
+            team_members: [],
+            logo: '',
+            social_links: {},
+            funding_raised_total: 0,
+            investor_count: 0,
+            founded_Date: '',
+            pitch_deck: '',
+            funding_goal: 0,
+            funds_raised: 0
+        });
+        
+        return transformStartupProfile(record);
+    } catch (err) {
+        console.error('Error creating startup profile:', err);
+        throw err;
+    }
+}
+
+async function getOrCreateStartupProfile(userId: string): Promise<StartupProfile> {
+    try {
+        const record = await pb.collection('startup_profiles')
+            .getFirstListItem(`user="${userId}"`)
+            .catch(() => null);
+        return record ? transformStartupProfile(record) : await createStartupProfile(userId);
+    } catch (err) {
+        console.error('Error getting startup profile:', err);
+        throw err;    
+    }
+}
 
 export const load: LayoutLoad = async ({ parent }) => {
-    // Get parent data and handle potential errors
-    const parentData = await parent().catch(() => ({ user: null }));
-    const authUser = parentData.user as User | null;
+    try {
+        const { user } = await parent();
 
-    // Check authentication
-    if (!authUser) {
-        throw redirect(302, '/login');
-    }
-
-    // Verify correct role
-    if (authUser.role !== 'startup') {
-        throw redirect(302, '/dashboard/investor');
-    }
+        if (!user || user.role !== 'startup') {
+            throw redirect(302, '/login');
+        }
 
     try {
         // Try to get startup profile
-        const startupProfileRecord = await pb.collection('startup_profiles')
-            .getFirstListItem(`user="${authUser.id}"`)
-            .catch(() => null);
+        const startupProfile = await getOrCreateStartupProfile(user.id);
 
         // If no profile exists, redirect to onboarding
-        if (!startupProfileRecord) {
+        if (!startupProfile) {
             // Only redirect to onboarding if authenticated
             if (pb.authStore.isValid) {
                 throw redirect(302, '/onboarding');
@@ -34,32 +86,12 @@ export const load: LayoutLoad = async ({ parent }) => {
             throw redirect(302, '/login');
         }
 
-        // Transform the record to our type
-        const startupProfile: StartupProfile = {
-            id: startupProfileRecord.id,
-            user: startupProfileRecord.user,
-            company_name: startupProfileRecord.company_name || '',
-            business_registration_number: startupProfileRecord.business_registration_number || '',
-            description: startupProfileRecord.description || '',
-            industry: startupProfileRecord.industry || 'other',
-            verification_documents: startupProfileRecord.verification_documents,
-            verification_status: startupProfileRecord.verification_status || 'unverified',
-            team_members: startupProfileRecord.team_members || [],
-            logo: startupProfileRecord.logo,
-            social_links: startupProfileRecord.social_links || {},
-            funding_raised_total: startupProfileRecord.funding_raised_total || 0,
-            investor_count: startupProfileRecord.investor_count || 0,
-            founded_Date: startupProfileRecord.founded_Date,
-            pitch_deck: startupProfileRecord.pitch_deck,
-            funding_goal: startupProfileRecord.funding_goal || 0,
-            funds_raised: startupProfileRecord.funds_raised || 0
-        };
+        
 
         // Calculate stats
         const stats = await calculateStats(startupProfile).catch(() => getDefaultStats());
 
         return {
-            user: authUser,
             startup: startupProfile,
             stats
         };
@@ -77,12 +109,20 @@ export const load: LayoutLoad = async ({ parent }) => {
         
         // Return default data if authenticated but error occurred
         return {
-            user: authUser,
+            user: user,
             startup: null,
             stats: getDefaultStats()
         };
     }
-};
+} catch (err) {
+    console.error('Error loading startup data:', err);
+    return {
+        user: pb.authStore.model,
+        startup: null,
+        stats: getDefaultStats()
+    };
+}
+}
 
 async function calculateStats(startup: StartupProfile): Promise<DashboardStats> {
     try {

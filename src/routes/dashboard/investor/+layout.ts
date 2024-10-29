@@ -138,7 +138,7 @@ export const load: LayoutLoad = async ({ parent }) => {
             console.error('Error loading investor data:', err);
             if (err.status === 404) {
                 // If profile doesn't exist and creation failed
-                throw redirect(302, '/onboarding/investor');
+                throw redirect(302, '/onboarding');
             }
             return {
                 profile: null,
