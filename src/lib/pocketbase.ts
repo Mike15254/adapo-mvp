@@ -1,4 +1,3 @@
-// src/lib/pocketbase.ts
 import PocketBase from 'pocketbase';
 import { browser } from '$app/environment';
 

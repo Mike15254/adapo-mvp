@@ -1,215 +1,190 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
-	import { fade, fly } from 'svelte/transition';
-	import { onboardingStore } from '$lib/stores/onboardingStore';
-	import { userType } from '$lib/stores/userStore';
-	import type { InvestorOnboardingData, StartupOnboardingData } from '$lib/types/onboarding.types';
-	import type { RegisterData } from '$lib/types/auth.types';
-	import { loadProgress } from '$lib/utils/progress';
-	import { OnboardingService } from '$lib/services/onboarding.service';
-	import LoadingScreen from '$lib/components/LoadingScreen.svelte';
-	import Navbar from '$lib/components/Navbar.svelte';
-	import VerificationStep from '$lib/components/VerificationStep.svelte';
-	import { ChevronDown } from 'lucide-svelte';
-	import { AuthService } from '$lib/services/auth.service';
-
-	let isInvestorTypeOpen = false;
-	let isInvestmentFocusOpen = false;
-	let isIndustryOpen = false;
-
-	// Refs for click outside detection
-	let investorTypeRef: HTMLElement;
-	let investmentFocusRef: HTMLElement;
-	let industryRef: HTMLElement;
-
-	// Close dropdowns when clicking outside
-	function handleClickOutside(
-		event: MouseEvent,
-		dropdownRef: HTMLElement,
-		setOpen: (value: boolean) => void
-	) {
-		if (dropdownRef && !dropdownRef.contains(event.target as Node)) {
-			setOpen(false);
-		}
-	}
-	// Base state
-	let error = '';
-	let isSubmitting = false;
-	let showPassword = false;
-	let showConfirmPassword = false;
-
-	// Password validation state
-	let passwordValidation = {
-		hasUpperCase: false,
-		hasLowerCase: false,
-		hasNumber: false,
-		hasSpecialChar: false,
-		isLongEnough: false
-	};
-
-	// Investor profile data
-	let investorData: Omit<InvestorOnboardingData, 'user'> = {
-		type: 'individual',
-		investment_focus: '',
-		verificationStatus: 'pending',
-		id_number: '',
-		kra_pin: ''
-	};
-
-	// Startup profile data
-	let startupData: Omit<StartupOnboardingData, 'user'> = {
-		company_name: '',
-		business_registration_number: '',
-		industry: '',
-		verification_status: 'pending',
-		description: ''
-	};
-
-	// Constants
-	const industries = ['Technology', 'Healthcare', 'Finance', 'Education', 'Agriculture', 'Other'];
-	const totalSteps = 4;
-	const stepTitles = ['Choose Type', 'Account', 'Details', 'Verify Email'];
-	let password = '';
-
-	// Reactive declarations
-	$: selectedType = $userType;
-	$: currentStep = $onboardingStore.currentStep;
-	$: userData = $onboardingStore.userData;
-	$: progressWidth = ((currentStep - 1) / (totalSteps - 1)) * 100;
-
-	// Password validation function
-	function validatePassword(password: string) {
-		passwordValidation = {
-			hasUpperCase: /[A-Z]/.test(password),
-			hasLowerCase: /[a-z]/.test(password),
-			hasNumber: /[0-9]/.test(password),
-			hasSpecialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]+/.test(password),
-			isLongEnough: password.length >= 8
-		};
-		return Object.values(passwordValidation).every(Boolean);
-	}
-
-	// Form validation - updates when relevant fields change
-	$: isPasswordValid = userData.password && validatePassword(userData.password);
-	$: isPasswordMatch = userData.password === userData.passwordConfirm;
-	$: isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userData.email || '');
-	$: isNameValid = (userData.name || '').trim().length >= 2;
-
-	// Step-specific validation
-	$: isStep2Valid = isPasswordValid && isPasswordMatch && isEmailValid && isNameValid;
-	$: isStep3Valid =
-		selectedType === 'investor'
-			? investorData.type && investorData.investment_focus && investorData.id_number
-			: startupData.company_name &&
-				startupData.business_registration_number &&
-				startupData.industry;
-
-	// Navigation functions
-	function selectType(type: 'investor' | 'startup') {
-		userType.set(type);
-		onboardingStore.updateUserData({ role: type });
-		nextStep();
-	}
-
-	function nextStep() {
-		if (currentStep === 2 && !isStep2Valid) return;
-		if (currentStep === 3 && !isStep3Valid) return;
-		onboardingStore.setStep(currentStep + 1);
-	}
-
-	function prevStep() {
-		if (currentStep > 1) {
-			onboardingStore.setStep(currentStep - 1);
-		}
-	}
-
-	// Handle form submission
-	// Add these to your existing script
-	let canResendVerification = true;
-	let resendCountdown = 60;
-
-	// Modify your handleSubmit function
-	// In your onboarding page script
-async function handleSubmit() {
-    try {
-        if (!isStep3Valid) return;
-
-        isSubmitting = true;
-        error = '';
-
-        const registrationData: RegisterData = {
-            email: userData.email,
-            password: userData.password,
-            passwordConfirm: userData.passwordConfirm,
-            name: userData.name,
-            role: selectedType,
-            username: userData.email.split('@')[0]
-        };
-
-        // Prepare the profile data based on the selected type
-        const profileData = selectedType === 'investor' 
-            ? {
-                user: '', // Will be set after user creation
-                ...investorData,
-                verification_status: 'pending' as const
-              }
-            : {
-                user: '', // Will be set after user creation
-                ...startupData,
-                verification_status: 'pending' as const
-              };
-
-        // Complete registration
-        await OnboardingService.completeRegistration(registrationData, profileData);
-        
-        // Move to verification step
-        onboardingStore.setStep(4);
-        
-    } catch (err: any) {
-        error = err?.message || 'Registration failed. Please try again.';
-    } finally {
-        isSubmitting = false;
-    }
-}
-
-// Add resend verification handler
-async function handleResendVerification() {
-    if (!canResendVerification) return;
+    import { onMount } from 'svelte';
+    import { fade, fly } from 'svelte/transition';
+    import { userType } from '$lib/stores/userStore';
+    import LoadingScreen from '$lib/components/LoadingScreen.svelte';
+    import Navbar from '$lib/components/Navbar.svelte';
     
-    try {
-        await AuthService.resendVerification(userData.email);
-        canResendVerification = false;
-        
-        const timer = setInterval(() => {
-            resendCountdown--;
-            if (resendCountdown <= 0) {
-                clearInterval(timer);
-                canResendVerification = true;
-                resendCountdown = 60;
-            }
-        }, 1000);
-        
-    } catch (err) {
-        error = err instanceof Error ? err.message : 'Failed to resend verification email';
+    import type { UserData, InvestorProfile, StartupProfile } from '$lib/types/onboarding.types';
+    import { onboardingStore } from '$lib/stores/onboardingStore';
+    import { OnboardingService } from '$lib/services/onboarding.service';
+
+    // Dropdown states
+    let isInvestorTypeOpen = false;
+    let isInvestmentFocusOpen = false;
+    let isIndustryOpen = false;
+
+    // Form states
+    let error = '';
+    let isSubmitting = false;
+    let showPassword = false;
+    let showConfirmPassword = false;
+
+    // Refs for click outside detection
+    let investorTypeRef: HTMLElement;
+    let investmentFocusRef: HTMLElement;
+    let industryRef: HTMLElement;
+
+    // Initial states with correct types
+    let investorData: InvestorProfile = {
+        type: 'individual',
+        investment_focus: 'other',
+        id_number: '',
+        kra_pin: '',
+        verification_status: 'unverified'
+    };
+
+    let startupData: StartupProfile = {
+        company_name: '',
+        business_registration_number: '',
+        industry: 'other',
+        description: '',
+        verification_status: 'unverified'
+    };
+
+    // Constants
+    const industries = [
+        'technology',
+        'healthcare',
+        'finance',
+        'education',
+        'agriculture',
+        'other'
+    ] as const;
+
+    const investorTypes = ['individual', 'institution'] as const;
+    const totalSteps = 4;
+    const stepTitles = ['Choose Type', 'Account', 'Details', 'Verify Email'];
+
+    // Reactive declarations
+    $: currentStep = $onboardingStore.currentStep;
+    $: userData = $onboardingStore.userData;
+    $: selectedType = $userType;
+    $: progressWidth = ((currentStep - 1) / (totalSteps - 1)) * 100;
+
+    // Validation
+    $: isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userData.email || '');
+    $: isPasswordValid = userData.password?.length >= 8;
+    $: isPasswordMatch = userData.password === userData.passwordConfirm;
+    $: isNameValid = (userData.name || '').trim().length >= 2;
+
+    // Step-specific validation
+    $: isStep2Valid = isPasswordValid && isPasswordMatch && isEmailValid && isNameValid;
+    $: isStep3Valid = selectedType === 'investor'
+        ? Boolean(
+            investorData.type &&
+            investorData.investment_focus &&
+            investorData.id_number &&
+            investorData.kra_pin
+        )
+        : Boolean(
+            startupData.company_name &&
+            startupData.business_registration_number &&
+            startupData.industry &&
+            startupData.description
+        );
+
+		
+    // Close dropdowns when clicking outside
+    function handleClickOutside(
+        event: MouseEvent,
+        dropdownRef: HTMLElement,
+        setOpen: (value: boolean) => void
+    ) {
+        if (dropdownRef && !dropdownRef.contains(event.target as Node)) {
+            setOpen(false);
+        }
     }
-}
 
-	// Load saved progress on mount
-	onMount(() => {
-		const savedProgress = loadProgress();
-		if (savedProgress) {
-			onboardingStore.updateUserData(savedProgress.userData);
-			onboardingStore.setStep(savedProgress.currentStep);
-			if (savedProgress.userData.role) {
-				userType.set(savedProgress.userData.role);
-			}
-		} else {
-			onboardingStore.reset();
-		}
-	});
+    // Navigation functions
+    function selectType(type: 'investor' | 'startup') {
+        userType.set(type);
+        onboardingStore.updateUserData({ role: type });
+        nextStep();
+    }
+
+    function nextStep() {
+        if (currentStep === 2 && !isStep2Valid) return;
+        if (currentStep === 3 && !isStep3Valid) return;
+        onboardingStore.setStep(currentStep + 1);
+    }
+
+    function prevStep() {
+        if (currentStep > 1) {
+            onboardingStore.setStep(currentStep - 1);
+        }
+    }
+
+    // Form submission
+    async function handleSubmit() {
+        try {
+            if (!isStep3Valid) return;
+            
+            isSubmitting = true;
+            error = '';
+
+            const profileData = selectedType === 'investor' 
+                ? investorData  // Already matches InvestorProfile type
+                : startupData;  // Already matches StartupProfile type
+
+            await OnboardingService.completeOnboarding(userData, profileData);
+            onboardingStore.setStep(4);
+        } catch (err: any) {
+            error = err?.message || 'Registration failed';
+        } finally {
+            isSubmitting = false;
+        }
+    }
+
+    // Verification resend
+    let canResendVerification = true;
+    let resendCountdown = 60;
+
+    async function handleResendVerification() {
+        if (!canResendVerification) return;
+
+        try {
+            isSubmitting = true;
+            await OnboardingService.resendVerification(userData.email);
+
+            error = '';
+            canResendVerification = false;
+
+            const timer = setInterval(() => {
+                resendCountdown--;
+                if (resendCountdown <= 0) {
+                    clearInterval(timer);
+                    canResendVerification = true;
+                    resendCountdown = 60;
+                }
+            }, 1000);
+        } catch (err: any) {
+            error = err?.message || 'Failed to resend verification email';
+        } finally {
+            isSubmitting = false;
+        }
+    }
+
+    // Load saved progress
+    onMount(() => {
+        onboardingStore.loadProgress();
+        const currentUserType = $onboardingStore.userData.role;
+        if (currentUserType) {
+            userType.set(currentUserType);
+        }
+    });
+
+    // Dropdown handlers
+    function handleIndustrySelect(industry: typeof industries[number]) {
+        startupData.industry = industry;
+        isIndustryOpen = false;
+    }
+
+    function handleInvestmentFocusSelect(focus: typeof industries[number]) {
+        investorData.investment_focus = focus;
+        isInvestmentFocusOpen = false;
+    }
 </script>
-
 <Navbar />
 <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
 	<div class="container mx-auto min-h-screen flex flex-col">
@@ -256,9 +231,7 @@ async function handleResendVerification() {
 				in:fly={{ y: 20, duration: 400 }}
 				out:fade={{ duration: 200 }}
 			>
-				{#if isSubmitting}
-					<LoadingScreen message="Creating your account..." />
-				{:else}
+				
 					<!-- Back Button -->
 					{#if currentStep > 1}
 						<div class="max-w-4xl mx-auto pt-12">
@@ -940,6 +913,7 @@ async function handleResendVerification() {
 												</span>
 											</button>
 
+											
 											{#if isInvestorTypeOpen}
 												<div
 													transition:fade={{ duration: 100 }}
@@ -1009,15 +983,10 @@ async function handleResendVerification() {
 													{#each industries as industry}
 														<button
 															class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-indigo-50
-										  {investorData.investment_focus === industry.toLowerCase()
-																? 'bg-indigo-50 text-indigo-600'
-																: 'text-gray-900'}"
-															on:click={() => {
-																investorData.investment_focus = industry.toLowerCase();
-																isInvestmentFocusOpen = false;
-															}}
+													{investorData.investment_focus === industry ? 'bg-indigo-50 text-indigo-600' : 'text-gray-900'}"
+															on:click={() => handleInvestmentFocusSelect(industry)}
 														>
-															{industry}
+															{industry.charAt(0).toUpperCase() + industry.slice(1)}
 														</button>
 													{/each}
 												</div>
@@ -1186,8 +1155,9 @@ async function handleResendVerification() {
 									disabled={!isStep3Valid || isSubmitting}
 								>
 									{#if isSubmitting}
+									<div class="flex items-center space-x-2">
 										<svg
-											class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+											class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
 											xmlns="http://www.w3.org/2000/svg"
 											fill="none"
 											viewBox="0 0 24 24"
@@ -1199,15 +1169,15 @@ async function handleResendVerification() {
 												r="10"
 												stroke="currentColor"
 												stroke-width="4"
-											></circle>
+											/>
 											<path
 												class="opacity-75"
 												fill="currentColor"
 												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-											>
-											</path>
+											/>
 										</svg>
-										Creating Account...
+										<span>Creating account ...</span>
+										</div>
 									{:else}
 										Complete Registration
 									{/if}
@@ -1292,7 +1262,7 @@ async function handleResendVerification() {
 					{/if}
 
 					<!-- Progress Bar -->
-				{/if}
+				
 			</main>
 		</div>
 	</div>

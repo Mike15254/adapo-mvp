@@ -14,6 +14,14 @@
     let rememberMe = browser ? localStorage.getItem('rememberMe') === 'true' : false;
     let isSubmitting = false;
 	let isLoading = false;
+	let isValid = false;
+
+	interface FormError {
+    type: 'UNVERIFIED_EMAIL' | 'INVALID_CREDENTIALS' | 'ACCOUNT_DISABLED' | 'SERVER_ERROR' | 'VALIDATION_ERROR';
+    message: string;
+}
+
+let error: FormError | null = null;
     
     // DOM refs
     let formElement: HTMLFormElement;
@@ -32,10 +40,7 @@
         password: string;
     }
 
-    let error: {
-        type: 'UNVERIFIED_EMAIL' | 'INVALID_CREDENTIALS' | 'ACCOUNT_DISABLED' | 'SERVER_ERROR' | 'VALIDATION_ERROR';
-        message: string;
-    } | null = null;
+    
     let fieldErrors: FieldErrors = {
         email: '',
         password: ''
@@ -44,6 +49,7 @@
     // Focus email input on mount if empty
     import { onMount } from 'svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import LoadingButton from '$lib/components/LoadingButton.svelte';
     onMount(() => {
         if (!email && emailInput) {
             emailInput.focus();
@@ -82,10 +88,12 @@
         return isValid;
     }
 
+
+    // Update the handleError function
     function handleError(err: any) {
         const message = err?.response?.message || err?.message || 'An unexpected error occurred';
         
-        if (message.includes('password')) {
+        if (message.includes('password') || message.includes('email')) {
             error = {
                 type: 'INVALID_CREDENTIALS',
                 message: 'Incorrect email or password. Please try again.'
@@ -107,55 +115,52 @@
                 message: 'An unexpected error occurred. Please try again later.'
             };
         }
-
-        if (formElement) {
-            formElement.classList.add('error-shake');
-            setTimeout(() => formElement.classList.remove('error-shake'), 500);
-        }
     }
 
-    async function handleSubmit() {
-        if (!validateForm()) return;
+	async function handleSubmit() {
+    if (!validateForm()) {
+        return;
+    }
+    
+    isSubmitting = true;
+    error = null;
+
+    try {
+        await AuthService.login({ email, password });
+    } catch (err) {
+		logError(err, 'Login failed');
         
-        isSubmitting = true;
-        error = null;
-
-        try {
-            await AuthService.login({ email, password });
-
-            // Handle remember me
-            if (browser) {
-                if (rememberMe) {
-                    localStorage.setItem('rememberedEmail', email);
-                    localStorage.setItem('rememberMe', 'true');
-                } else {
-                    localStorage.removeItem('rememberedEmail');
-                    localStorage.removeItem('rememberMe');
-                }
-            }
-        } catch (err) {
-            if (err instanceof AuthError) {
-                error = {
-                    type: err.code,
-                    message: err.message
-                };
-                
-                // Show form shake animation for invalid credentials
-                if (err.code === 'INVALID_CREDENTIALS' && formElement) {
-                    formElement.classList.add('error-shake');
-                    setTimeout(() => formElement.classList.remove('error-shake'), 500);
-                }
-            } else {
-                error = {
-                    type: 'SERVER_ERROR',
-                    message: 'An unexpected error occurred. Please try again later.'
-                };
-            }
-        } finally {
-            isSubmitting = false;
+        if (err instanceof AuthError) {
+            error = {
+                type: err.code,
+                message: err.message
+            };
+        } else {
+            error = {
+                type: 'SERVER_ERROR',
+                message: err instanceof Error ? err.message : 'An unexpected error occurred'
+            };
         }
+    } finally {
+        isSubmitting = false;
     }
-
+}
+function logError(error: unknown, context: string) {
+    if (error instanceof AuthError) {
+        console.error(`${context}:`, {
+            type: error.code,
+            message: error.message
+        });
+    } else if (error instanceof Error) {
+        console.error(`${context}:`, {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
+    } else {
+        console.error(`${context}:`, error);
+    }
+}
     async function handleResendVerification(userEmail: string) {
         try {
             isSubmitting = true;
@@ -189,9 +194,7 @@
 <div
 	class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col justify-center sm:px-6 lg:px-8"
 >
-{#if isSubmitting}
-<LoadingScreen message=""/>
-{:else}
+
 	<div class="sm:mx-auto sm:w-full sm:max-w-md" in:fly={{ y: 20, duration: 700, delay: 200 }}>
 		
 		<h2
@@ -219,33 +222,44 @@
            
 			<form bind:this={formElement} class="space-y-6" on:submit|preventDefault={handleSubmit}>
 				{#if error}
-					<div
-						class="rounded-md bg-red-50 p-4 shadow-sm"
-						in:fly={{ y: -20, duration: 300 }}
-						out:fade
-						role="alert"
-					>
-						<div class="flex">
-							<div class="flex-shrink-0">
-								<svg
-									class="h-5 w-5 text-red-400"
-									viewBox="0 0 20 20"
-									fill="currentColor"
-									aria-hidden="true"
-								>
-									<path
-										fill-rule="evenodd"
-										d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-										clip-rule="evenodd"
-									/>
-								</svg>
-							</div>
-							<div class="ml-3">
-								<p class="text-sm font-medium text-red-800">{error}</p>
-							</div>
-						</div>
-					</div>
-				{/if}
+    <div
+        class="rounded-md bg-red-50 p-4 shadow-sm"
+        in:fly={{ y: -20, duration: 300 }}
+        out:fade
+        role="alert"
+    >
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg
+                    class="h-5 w-5 text-red-400"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                >
+                    <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clip-rule="evenodd"
+                    />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <!-- Change this line -->
+                <p class="text-sm font-medium text-red-800">{error.message}</p>
+                
+                {#if error.type === 'UNVERIFIED_EMAIL'}
+                    <button 
+                        class="mt-2 text-sm text-red-800 underline"
+                        on:click={() => handleResendVerification(email)}
+                        disabled={isSubmitting}
+                    >
+                        Resend verification email
+                    </button>
+                {/if}
+            </div>
+        </div>
+    </div>
+{/if}
 
 				<div class="space-y-2">
 					<label for="email" class="block text-sm font-medium text-gray-700"> Email address </label>
@@ -354,14 +368,13 @@
 					</div>
 
 					<div>
-						<button
+						<LoadingButton
 							type="submit"
-							disabled={isLoading}
-							class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-						>
+							text="Sign in"
+							loadingText="Signing in..."
+							loading={isSubmitting}
 							
-								Sign in
-						</button>
+						/>
 					</div>
 				</div>
 			</form>
@@ -387,46 +400,10 @@
 			</div>
 		</div>
 	</div>
-    {/if}
+    
 </div>
 
-{#if error}
-    <div
-        class="rounded-md bg-red-50 p-4 shadow-sm mb-6"
-        in:fly={{ y: -20, duration: 300 }}
-        out:fade
-        role="alert"
-    >
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                        fill-rule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
-            </div>
-            <div class="ml-3">
-                <h3 class="text-sm font-medium text-red-800">
-                    {error.message}
-                </h3>
-                {#if error.type === 'UNVERIFIED_EMAIL'}
-                    <div class="mt-2 text-sm text-red-700">
-                        <p>Please check your email inbox for the verification link or</p>
-                        <button
-                            class="mt-1 text-red-800 font-medium hover:text-red-900 underline focus:outline-none"
-                            on:click={() => handleResendVerification(email)}
-                            disabled={isSubmitting}
-                        >
-                            Click here to resend verification email
-                        </button>
-                    </div>
-                {/if}
-            </div>
-        </div>
-    </div>
-{/if}
+
 <style lang="postcss">
 	/* Error shake animation */
 	@keyframes error-shake {

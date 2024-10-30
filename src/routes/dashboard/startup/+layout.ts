@@ -4,27 +4,30 @@ import { DashboardService, dashboardStore } from '$lib/services/dashboard.servic
 import { requireRole } from '$lib/guards/auth.guard';
 
 export const load: LayoutLoad = async (event) => {
-    // Verify user role and auth status
-    const user = await requireRole(event, ['startup']);
-    
     try {
+        // Verify user role and auth status
+        const user = await requireRole(event, ['startup']);
         dashboardStore.setLoading(true);
-        
-        // Load startup profile
+
+        // Load startup profile and stats
         const startup = await DashboardService.loadStartupProfile(user.id);
         
         if (!startup) {
             throw redirect(302, '/onboarding');
         }
 
-        // Load dashboard stats
         const stats = await DashboardService.loadDashboardStats(startup);
-        
-        // Update store and return data
+
+        // Update store
         dashboardStore.setStartup(startup);
         dashboardStore.setStats(stats);
-        
-        return { startup, stats };
+        dashboardStore.setError(null);
+
+        return {
+            startup,
+            stats,
+            user
+        };
     } catch (err) {
         if (err instanceof Response) throw err;
         
@@ -33,7 +36,8 @@ export const load: LayoutLoad = async (event) => {
         
         return {
             startup: null,
-            stats: DashboardService.getDefaultStats()
+            stats: DashboardService.getDefaultStats(),
+            user: null
         };
     } finally {
         dashboardStore.setLoading(false);

@@ -1,29 +1,40 @@
-export interface OnboardingStore {
-    currentStep: number;
-    userData: {
-        email: string;
-        password: string;
-        passwordConfirm: string;
-        name: string;
-        role: 'investor' | 'startup';
-    };
+export type UserRole = 'investor' | 'startup';
+export type VerificationStatus = 'unverified' | 'pending' | 'verified';
+export type AccountStatus = 'pending' | 'active' | 'suspended';
+export type Industry = 'technology' | 'healthcare' | 'finance' | 'education' | 'agriculture' | 'other';
+export type InvestorType = 'individual' | 'institution';
+
+// Core user data for registration
+export interface UserData {
+    email: string;
+    password: string;
+    passwordConfirm: string;
+    name: string;
+    role: UserRole;
 }
 
-// src/lib/types/onboarding.types.ts
-export interface InvestorOnboardingData {
-    user: string;
-    type: 'individual' | 'institution';
-    investment_focus: string;
-    verification_status: 'pending' | 'verified' | 'unverified';
+// Investor onboarding data
+export interface InvestorProfile {
+    type: InvestorType;
+    investment_focus: Industry;
     id_number: string;
     kra_pin: string;
+    verification_status: VerificationStatus;
 }
 
-export interface StartupOnboardingData {
-    user: string;
+// Startup onboarding data
+export interface StartupProfile {
     company_name: string;
     business_registration_number: string;
-    industry: string;
-    verification_status: 'pending' | 'verified' | 'unverified';
+    industry: Industry;
     description: string;
+    verification_status: VerificationStatus;
+}
+
+// Store state interface
+export interface OnboardingState {
+    currentStep: number;
+    userData: UserData;
+    investorData?: InvestorProfile;
+    startupData?: StartupProfile;
 }

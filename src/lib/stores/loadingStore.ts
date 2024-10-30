@@ -1,20 +1,38 @@
-// src/lib/stores/loadingStore.ts
 import { writable } from 'svelte/store';
 
 interface LoadingState {
-    isLoading: boolean;
-    message: string;
+    isRouteLoading: boolean;
+    isPageLoading: boolean;
+    loadingMessage: string;
 }
 
-export const loadingStore = writable<LoadingState>({
-    isLoading: false,
-    message: ''
-});
+const createLoadingStore = () => {
+    const { subscribe, set, update } = writable<LoadingState>({
+        isRouteLoading: false,
+        isPageLoading: false,
+        loadingMessage: ''
+    });
 
-export const showLoading = (message = 'Loading...') => {
-    loadingStore.set({ isLoading: true, message });
+    return {
+        subscribe,
+        setRouteLoading: (isLoading: boolean) => {
+            update(state => ({ ...state, isRouteLoading: isLoading }));
+        },
+        setPageLoading: (isLoading: boolean, message = '') => {
+            update(state => ({
+                ...state,
+                isPageLoading: isLoading,
+                loadingMessage: message
+            }));
+        },
+        reset: () => {
+            set({
+                isRouteLoading: false,
+                isPageLoading: false,
+                loadingMessage: ''
+            });
+        }
+    };
 };
 
-export const hideLoading = () => {
-    loadingStore.set({ isLoading: false, message: '' });
-};
+export const loadingStore = createLoadingStore();

@@ -1,64 +1,49 @@
-// src/lib/stores/onboardingStore.ts
 import { writable } from 'svelte/store';
+import type { OnboardingState, UserData } from '../types/onboarding.types';
 
-export interface OnboardingState {
-  currentStep: number;
-  totalSteps: number; // Added to track total steps
-  userData: {
-    email: string;
-    password: string;
-    name: string;
-    role: string;
-    verification_status: 'unverified' | 'pending' | 'verified';
-    account_status: 'pending' | 'active' | 'suspended';
-    [key: string]: any;
-  };
-  isCompleted: boolean;
-  verificationSent: boolean;
-}
-
-function createOnboardingStore() {
-  const { subscribe, set, update } = writable<OnboardingState>({
+const initialState: OnboardingState = {
     currentStep: 1,
-    totalSteps: 4, // Now including verification step
     userData: {
-      email: '',
-      password: '',
-      name: '',
-      role: '',
-      verification_status: 'unverified',
-      account_status: 'pending'
-    },
-    isCompleted: false,
-    verificationSent: false
-  });
-
-  return {
-    subscribe,
-    setStep: (step: number) => update(state => ({ ...state, currentStep: step })),
-    updateUserData: (data: Partial<OnboardingState['userData']>) =>
-      update(state => ({
-        ...state,
-        userData: { ...state.userData, ...data }
-      })),
-    setVerificationSent: (sent: boolean) =>
-      update(state => ({ ...state, verificationSent: sent })),
-    reset: () => set({
-      currentStep: 1,
-      totalSteps: 4,
-      userData: {
         email: '',
         password: '',
+        passwordConfirm: '',
         name: '',
-        role: '',
-        verification_status: 'unverified',
-        account_status: 'pending'
-      },
-      isCompleted: false,
-      verificationSent: false
-    }),
-    complete: () => update(state => ({ ...state, isCompleted: true }))
-  };
+        role: 'investor'
+    }
+};
+
+function createOnboardingStore() {
+    const { subscribe, set, update } = writable<OnboardingState>(initialState);
+
+    return {
+        subscribe,
+        setStep: (step: number) => update(state => ({ ...state, currentStep: step })),
+        updateUserData: (data: Partial<UserData>) =>
+            update(state => ({
+                ...state,
+                userData: { ...state.userData, ...data }
+            })),
+        reset: () => set(initialState),
+        // Save progress to localStorage
+        saveProgress: () => {
+            update(state => {
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('onboardingProgress', JSON.stringify(state));
+                }
+                return state;
+            });
+        },
+        // Load progress from localStorage
+        loadProgress: () => {
+            if (typeof window !== 'undefined') {
+                const saved = localStorage.getItem('onboardingProgress');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    set(parsed);
+                }
+            }
+        }
+    };
 }
 
 export const onboardingStore = createOnboardingStore();

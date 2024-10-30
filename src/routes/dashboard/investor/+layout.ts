@@ -1,16 +1,16 @@
-// src/routes/dashboard/investor/+layout.ts
 import type { LayoutLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
-import { InvestorDashboardService, getDefaultStats } from '$lib/services/investor.service';
+import { InvestorService } from '$lib/services/investor.service';
 import { requireRole } from '$lib/guards/auth.guard';
-import type { InvestorDashboardStats } from '$lib/types/investor.types';
 
 export const load: LayoutLoad = async (event) => {
-    // Verify user role and auth status
-    const user = await requireRole(event, ['investor']);
-    
     try {
-        const dashboardData = await InvestorDashboardService.loadDashboardData(user.id);
+        // Verify user role and auth status
+        const user = await requireRole(event, ['investor']);
+        
+        // Load dashboard data
+        const dashboardData = await InvestorService.loadDashboardData(user.id);
+        
         return {
             ...dashboardData,
             user
@@ -21,10 +21,10 @@ export const load: LayoutLoad = async (event) => {
         console.error('Investor dashboard error:', err);
         return {
             profile: null,
-            stats: getDefaultStats(),
+            stats: InvestorService.getDefaultStats(),
             investments: [],
             opportunities: [],
-            user
+            user: null
         };
     }
 };

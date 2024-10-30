@@ -1,4 +1,3 @@
-// src/lib/services/auth.service.ts
 import { pb, clearPocketBaseAuth } from '../pocketbase';
 import { authStore } from '../stores/authStore';
 import type { RegisterData, LoginData, AuthUser } from '../types/auth.types';
@@ -71,47 +70,48 @@ export class AuthService {
             if (!user) {
                 throw new AuthError('Invalid user data', 'SERVER_ERROR');
             }
-
-            // Check email verification using PocketBase's verified field
+    
             if (!user.verified) {
-                // Clear the auth state since we don't want to log in unverified users
                 clearPocketBaseAuth();
                 throw new AuthError(
                     'Please verify your email before logging in',
                     'UNVERIFIED_EMAIL'
                 );
             }
-
-            // Check account status
+    
             if (user.account_status === 'suspended') {
                 clearPocketBaseAuth();
                 throw new AuthError(
-                    'Your account has been suspended. Please contact support.',
+                    'Your account has been suspended',
                     'ACCOUNT_DISABLED'
                 );
             }
-
-            // If all checks pass, update auth store and redirect
+    
             authStore.setUser(user);
             await goto(`/dashboard/${user.role}`);
             
             return { user, token: authData.token };
         } catch (error: any) {
+            // Handle PocketBase errors
+            if (error?.response?.message) {
+                if (error.response.message.includes('password') || 
+                    error.response.message.includes('email')) {
+                    throw new AuthError(
+                        'Invalid email or password',
+                        'INVALID_CREDENTIALS'
+                    );
+                }
+                throw new AuthError(error.response.message, 'SERVER_ERROR');
+            }
+            
+            // If it's already an AuthError, rethrow it
             if (error instanceof AuthError) {
                 throw error;
             }
             
-            // Handle PocketBase errors
-            const message = error?.response?.message || error?.message;
-            if (message?.includes('password') || message?.includes('email')) {
-                throw new AuthError(
-                    'Invalid email or password',
-                    'INVALID_CREDENTIALS'
-                );
-            }
-            
+            // For any other errors
             throw new AuthError(
-                'An unexpected error occurred',
+                error?.message || 'Authentication failed',
                 'SERVER_ERROR'
             );
         } finally {

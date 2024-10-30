@@ -1,46 +1,101 @@
 // src/lib/services/onboarding.service.ts
-import { AuthService } from './auth.service';
-import type { RegisterData } from '../types/auth.types';
-import { pb } from '../pocketbase';
+import { pb } from '$lib/pocketbase';
+import type { 
+    UserData, 
+    InvestorProfile, 
+    StartupProfile, 
+    VerificationStatus 
+} from '../types/onboarding.types';
 
-interface InvestorProfile {
-    user: string;
-    type: string;
-    investment_focus: string;
-    id_number: string;
-    kra_pin: string;
-    verification_status: 'pending' | 'verified' | 'unverified';
-}
-
-interface StartupProfile {
-    user: string;
-    company_name: string;
-    business_registration_number: string;
-    industry: string;
-    description: string;
-    verification_status: 'pending' | 'verified' | 'unverified';
+export class OnboardingError extends Error {
+    constructor(message: string, public code?: string) {
+        super(message);
+        this.name = 'OnboardingError';
+    }
 }
 
 export class OnboardingService {
-    static async completeRegistration(
-        userData: RegisterData,
+    private static async createUser(userData: UserData) {
+        try {
+            const data = {
+                ...userData,
+                emailVisibility: true,
+                verification_status: 'unverified' as VerificationStatus,
+                account_status: 'pending',
+                onboarding_completed: false
+            };
+
+            const record = await pb.collection('users').create(data);
+            await pb.collection('users').requestVerification(userData.email);
+            
+            return record;
+        } catch (error: any) {
+            throw new OnboardingError(
+                error.message || 'Failed to create user account',
+                error.code
+            );
+        }
+    }
+
+    private static async createProfile(
+        userId: string,
+        profileData: InvestorProfile | StartupProfile,
+        isInvestor: boolean
+    ) {
+        try {
+            const collection = isInvestor ? 'investors_profiles' : 'startup_profiles';
+            const data = {
+                user: userId,
+                ...profileData
+            };
+
+            return await pb.collection(collection).create(data);
+        } catch (error: any) {
+            throw new OnboardingError(
+                error.message || 'Failed to create profile',
+                error.code
+            );
+        }
+    }
+
+    static async completeOnboarding(
+        userData: UserData,
         profileData: InvestorProfile | StartupProfile
     ) {
         try {
-            const user = await AuthService.register(userData);
+            // Create user account
+            const user = await this.createUser(userData);
+            
+            // Create corresponding profile
+            await this.createProfile(
+                user.id,
+                profileData,
+                userData.role === 'investor'
+            );
 
-            if (user) {
-                const collection = userData.role === 'investor' ? 'investors_profiles' : 'startup_profiles';
-                await pb.collection(collection).create({
-                    user: user.id,
-                    ...profileData,
-                    verification_status: 'pending'
-                });
-            }
+            // Authenticate user
+            await pb.collection('users').authWithPassword(
+                userData.email,
+                userData.password
+            );
 
             return user;
         } catch (error: any) {
-            throw new Error(error.message || 'Registration failed');
+            throw new OnboardingError(
+                error.message || 'Onboarding failed',
+                error.code
+            );
+        }
+    }
+
+    static async resendVerification(email: string) {
+        try {
+            await pb.collection('users').requestVerification(email);
+        } catch (error: any) {
+            throw new OnboardingError(
+                error.message || 'Failed to resend verification',
+                error.code
+            );
         }
     }
 }

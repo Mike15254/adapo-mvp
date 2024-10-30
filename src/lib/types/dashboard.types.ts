@@ -1,42 +1,36 @@
-// src/lib/types/dashboard.types.ts
-import type { AuthUser } from './auth.types';
-
-export type UpdateType = 'milestone' | 'financial' | 'team' | 'general';
+export type UserRole = 'investor' | 'startup';
 export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
-export type IndustryType = 'technology' | 'healthcare' | 'finance' | 'education' | 'agriculture' | 'other';
+export type AccountStatus = 'pending' | 'active' | 'suspended';
+export type Industry = 'technology' | 'healthcare' | 'finance' | 'education' | 'agriculture' | 'other';
 
+// Core startup profile (extends from onboarding)
 export interface StartupProfile {
     id: string;
     user: string;
     company_name: string;
     business_registration_number: string;
     description: string;
-    industry: IndustryType;
-    verification_documents?: string;
+    industry: Industry;
     verification_status: VerificationStatus;
-    team_members: TeamMember[];
-    logo?: string;
-    social_links: SocialLinks;
-    funding_raised_total: number;
-    investor_count: number;
-    founded_Date: string;
-    pitch_deck?: string;
+    
+    // Additional dashboard-specific fields
     funding_goal: number;
     funds_raised: number;
+    investor_count: number;
+    pitch_deck?: string;
+    logo?: string;
+    team_members: {
+        name: string;
+        role: string;
+    }[];
+    social_links: {
+        website?: string;
+        linkedin?: string;
+        twitter?: string;
+    };
 }
 
-export interface TeamMember {
-    name: string;
-    role: string;
-    bio: string;
-    image?: string;
-}
-
-export interface SocialLinks {
-    website?: string;
-    linkedin?: string;
-    twitter?: string;
-}
+export type UpdateType = 'milestone' | 'financial' | 'team' | 'general';
 
 export interface StartupUpdate {
     id: string;
@@ -44,7 +38,6 @@ export interface StartupUpdate {
     title: string;
     content: string;
     update_type: UpdateType;
-    attachments?: string[];
     created: string;
 }
 
@@ -52,10 +45,11 @@ export interface Investment {
     id: string;
     amount: number;
     status: 'pending' | 'completed' | 'refunded';
-    project: string;
     investor: string;
-    transaction_date: string;
     startup: string;
+    transaction_date: string;
+    recentInvestments: Investment[];
+
 }
 
 export interface DashboardStats {
