@@ -1,143 +1,129 @@
-import { pb } from '../pocketbase';
-import type { RegisterData, ApiError, AuthState } from '../types/auth.types';
-import { browser } from '$app/environment';
+// src/lib/services/auth.service.ts
+import { pb, clearPocketBaseAuth } from '../pocketbase';
+import { authStore } from '../stores/authStore';
+import type { RegisterData, LoginData, AuthUser } from '../types/auth.types';
+import { transformToAuthUser, isAuthUser } from '../types/auth.types';
 import { goto } from '$app/navigation';
-import { onboardingStore } from '../stores/onboardingStore';
-import { userType } from '../stores/userStore';
-import { writable } from 'svelte/store';
+import { get } from 'svelte/store';
 
-// Update AuthState interface to include verification status
-export const authStore = writable<AuthState>({
-    user: null,
-    token: null,
-    isLoading: true,
-   isAuthenticated: false,
-    verification_status: 'unverified'
-});
 
+export class AuthError extends Error {
+    constructor(
+        message: string,
+        public code: 'UNVERIFIED_EMAIL' | 'INVALID_CREDENTIALS' | 'ACCOUNT_DISABLED' | 'SERVER_ERROR'
+    ) {
+        super(message);
+        this.name = 'AuthError';
+    }
+}
 export class AuthService {
-    static async register(data: RegisterData) {
+    static async initialize() {
         try {
-            // Create user with verification pending status
-            const user = await pb.collection('users').create({
+            authStore.setLoading(true);
+            
+            if (pb.authStore.isValid) {
+                const user = transformToAuthUser(pb.authStore.model);
+                authStore.setUser(user);
+            } else {
+                authStore.reset();
+            }
+        } catch (error) {
+            console.error('Auth initialization error:', error);
+            authStore.reset();
+        } finally {
+            authStore.setLoading(false);
+        }
+    }
+
+    static async register(data: RegisterData) {
+        authStore.setLoading(true);
+        
+        try {
+            const record = await pb.collection('users').create({
                 ...data,
                 account_status: 'pending',
-                verification_status: 'unverified',
                 emailVisibility: true
             });
 
-            // Request email verification instead of auto-login
+            // Use PocketBase's built-in verification
             await pb.collection('users').requestVerification(data.email);
-
-            // Update auth store with pending verification status
-            authStore.set({
-                user,
-                token: null,
-                isLoading: false,
-                isAuthenticated: false,
-                verification_status: 'pending'
-            });
-
+            
+            const user = transformToAuthUser(record);
+            if (!user) throw new Error('Invalid user data after registration');
+            
             return user;
-        } catch (error) {
+        } catch (error: any) {
+            const errorMessage = error.response?.message || error.message || 'Registration failed';
+            authStore.setError(errorMessage);
             throw error;
+        } finally {
+            authStore.setLoading(false);
         }
     }
-    static async requestVerificationEmail(email: string) {
-        return this.resendVerification(email);
-    }
 
-    static async login(email: string, password: string) {
+    static async login({ email, password }: LoginData) {
+        authStore.setLoading(true);
+        
         try {
             const authData = await pb.collection('users').authWithPassword(email, password);
-
-            // Debug log
-            console.log('Login successful:', authData);
-
-            if (!authData.record.verified) {
-                throw new Error('UNVERIFIED_EMAIL');
-            }
-
-            if (browser) {
-                // Set cookie
-                document.cookie = `pb_auth=${JSON.stringify({
-                    token: authData.token,
-                    model: authData.record
-                })}; path=/; max-age=2592000; SameSite=Strict${
-                    window.location.protocol === 'https:' ? '; Secure' : ''
-                }`;
-
-                // Update auth store
-                pb.authStore.save(authData.token, authData.record);
-
-                // Get user role and redirect
-                const role = authData.record.role;
-                if (!role) {
-                    await goto('/onboarding');
-                    return authData;
-                }
-
-                // Forced page reload to ensure proper state
-                window.location.href = `/dashboard/${role}`;
-                return authData;
-            }
-
-            return authData;
-        } catch (error) {
-            console.error('Login error:', error);
-            throw error;
-        }
-    }
-
-
-    static async verifyEmail(token: string) {
-        try {
-            await pb.collection('users').confirmVerification(token);
+            const user = transformToAuthUser(authData.record);
             
-            // Update user's verification status
-            if (pb.authStore.model) {
-                await pb.collection('users').update(pb.authStore.model.id, {
-                    verification_status: 'verified'
-                });
+            if (!user) {
+                throw new AuthError('Invalid user data', 'SERVER_ERROR');
             }
 
-            // Clear any existing onboarding state
-        onboardingStore.reset();
-            return true;
-        } catch (error) {
-            throw error;
+            // Check email verification using PocketBase's verified field
+            if (!user.verified) {
+                // Clear the auth state since we don't want to log in unverified users
+                clearPocketBaseAuth();
+                throw new AuthError(
+                    'Please verify your email before logging in',
+                    'UNVERIFIED_EMAIL'
+                );
+            }
+
+            // Check account status
+            if (user.account_status === 'suspended') {
+                clearPocketBaseAuth();
+                throw new AuthError(
+                    'Your account has been suspended. Please contact support.',
+                    'ACCOUNT_DISABLED'
+                );
+            }
+
+            // If all checks pass, update auth store and redirect
+            authStore.setUser(user);
+            await goto(`/dashboard/${user.role}`);
+            
+            return { user, token: authData.token };
+        } catch (error: any) {
+            if (error instanceof AuthError) {
+                throw error;
+            }
+            
+            // Handle PocketBase errors
+            const message = error?.response?.message || error?.message;
+            if (message?.includes('password') || message?.includes('email')) {
+                throw new AuthError(
+                    'Invalid email or password',
+                    'INVALID_CREDENTIALS'
+                );
+            }
+            
+            throw new AuthError(
+                'An unexpected error occurred',
+                'SERVER_ERROR'
+            );
+        } finally {
+            authStore.setLoading(false);
         }
     }
 
-    static async resendVerification(email: string) {
-        try {
-            await pb.collection('users').requestVerification(email);
-            return true;
-        } catch (error) {
-            throw error;
-        }
-    }
 
     static async logout() {
         try {
-            pb.authStore.clear();
-
-            authStore.set({
-                user: null,
-                token: null,
-                isLoading: false,
-                isAuthenticated: false,
-                verification_status: 'unverified'
-            });
-
-            onboardingStore.reset();
-            userType.set('investor');
-
-            if (browser) {
-                localStorage.removeItem('pb_auth');
-                document.cookie = 'pb_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-            }
-
+            clearPocketBaseAuth();
+            authStore.reset();
             await goto('/');
         } catch (error) {
             console.error('Logout error:', error);
@@ -145,11 +131,45 @@ export class AuthService {
         }
     }
 
-    static isAuthenticated(): boolean {
-        return pb.authStore.isValid;
+    static async verifyEmail(token: string) {
+        try {
+            // Use PocketBase's built-in verification confirmation
+            await pb.collection('users').confirmVerification(token);
+            
+            // If user is logged in, update their state
+            if (pb.authStore.model) {
+                const user = transformToAuthUser(pb.authStore.model);
+                if (user) {
+                    authStore.setUser(user);
+                }
+            }
+            
+            return true;
+        } catch (error: any) {
+            const errorMessage = error.response?.message || error.message || 'Email verification failed';
+            authStore.setError(errorMessage);
+            throw error;
+        }
     }
 
-    static getCurrentUser() {
-        return pb.authStore.model;
+    static async resendVerification(email: string) {
+        try {
+            // Use PocketBase's built-in verification request
+            await pb.collection('users').requestVerification(email);
+            return { success: true };
+        } catch (error) {
+            throw new AuthError(
+                'Failed to send verification email',
+                'SERVER_ERROR'
+            );
+        }
+    }
+
+    static getCurrentUser(): AuthUser | null {
+        return get(authStore).user;
+    }
+
+    static isAuthenticated(): boolean {
+        return get(authStore).isAuthenticated;
     }
 }

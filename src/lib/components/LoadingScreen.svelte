@@ -51,7 +51,7 @@
 	});
 </script>
 
-<div class="flex flex-col items-center justify-center min-h-screen  px-4">
+<div class="flex flex-col items-center justify-center min-h-screen  px-4 bg-white">
 	<div class="w-full max-w-sm text-center">
 		<h2 class="text-xl md:text-2xl font-semibold text-gray-800 mb-8">
 			{message}

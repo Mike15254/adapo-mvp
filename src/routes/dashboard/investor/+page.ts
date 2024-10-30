@@ -1,54 +1,24 @@
+// src/routes/dashboard/investor/+page.ts
 import type { PageLoad } from './$types';
-import type { Investment, Project, ListResult } from '$lib/types/';
-import { pb } from '$lib/pocketbase';
-import type { RecordModel } from 'pocketbase';
+import { get } from 'svelte/store';
+import { investorStore } from '$lib/services/investor.service';
+import type { InvestorDashboardStats, Investment } from '$lib/types/investor.types';
 
-// Type for the page data
 interface PageData {
-  investments: Investment[];
-  opportunities: Project[];
-  totalInvested: number;
-  activeInvestments: number;
-  error?: string;
+    stats: InvestorDashboardStats;
+    investments: Investment[];
+    opportunities: any[];
+    error?: string | null;
 }
 
-export const load: PageLoad<PageData> = async () => {
-  const user = pb.authStore.model;
-  if (!user) {
-    return {
-      investments: [],
-      opportunities: [],
-      totalInvested: 0,
-      activeInvestments: 0
-    };
-  }
-
-  try {
-    const [investmentData, projectData] = await Promise.all([
-      pb.collection('investments').getList<Investment>(1, 50, {
-        filter: `investor = "${user.id}"`,
-        expand: 'project'
-      }),
-      pb.collection('projects').getList<Project>(1, 5, {
-        filter: 'status = "active"',
-        sort: '-created'
-      })
-    ]);
+export const load: PageLoad<PageData> = async ({ parent }) => {
+    const parentData = await parent();
+    const storeData = get(investorStore);
 
     return {
-      investments: investmentData.items as Investment[],
-      opportunities: projectData.items as Project[],
-      totalInvested: investmentData.items.reduce((sum, inv) => sum + inv.amount, 0),
-      activeInvestments: investmentData.items.length
+        stats: parentData.stats || storeData.stats || getDefaultStats(),
+        investments: parentData.investments || storeData.investments || [],
+        opportunities: parentData.opportunities || storeData.opportunities || [],
+        error: storeData.error
     };
-  } catch (error) {
-    console.error('Error loading dashboard data:', error);
-    return {
-      investments: [],
-      opportunities: [],
-      totalInvested: 0,
-      activeInvestments: 0,
-      error: 'Failed to load dashboard data'
-    };
-  }
 };

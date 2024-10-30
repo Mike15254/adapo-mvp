@@ -1,184 +1,199 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { fade, fly, scale } from 'svelte/transition';
-	import { AuthService } from '$lib/services/auth.service';
-	import { browser } from '$app/environment';
-	import logo from '$lib/assets/adapo-logo.png';
+    import { goto } from '$app/navigation';
+    import { fade, fly, scale } from 'svelte/transition';
+    import { AuthService, AuthError } from '$lib/services/auth.service';
+    import { browser } from '$app/environment';
+    import logo from '$lib/assets/adapo-logo.png';
     import LoadingScreen from '$lib/components/LoadingScreen.svelte';
+    import type { LoginData } from '$lib/types/auth.types';
 
-	let email = browser ? localStorage.getItem('rememberedEmail') || '' : '';
-	let password = '';
-	//   let error = '';
-	let isLoading = false;
-	let showPassword = false;
-	let rememberMe = browser ? localStorage.getItem('rememberMe') === 'true' : false;
-	let formElement: HTMLFormElement;
-	let emailInput: HTMLInputElement;
+    // Form state
+    let email = browser ? localStorage.getItem('rememberedEmail') || '' : '';
+    let password = '';
+    let showPassword = false;
+    let rememberMe = browser ? localStorage.getItem('rememberMe') === 'true' : false;
     let isSubmitting = false;
+	let isLoading = false;
+    
+    // DOM refs
+    let formElement: HTMLFormElement;
+    let emailInput: HTMLInputElement;
 
-	// Focus email input on mount if empty
-	import { onMount } from 'svelte';
-	onMount(() => {
-		if (!email && emailInput) {
-			emailInput.focus();
-		}
-	});
+    // Error handling types
+    type ErrorType = 'INVALID_CREDENTIALS' | 'UNVERIFIED_EMAIL' | 'ACCOUNT_DISABLED' | 'SERVER_ERROR' | 'VALIDATION_ERROR';
 
-	type ErrorType =
-		| 'INVALID_PASSWORD'
-		| 'EMAIL_NOT_FOUND'
-		| 'UNVERIFIED_EMAIL'
-		| 'ACCOUNT_DISABLED'
-		| 'SERVER_ERROR'
-		| 'VALIDATION_ERROR';
+    interface FormError {
+        type: ErrorType;
+        message: string;
+    }
 
-	let error: { type: ErrorType; message: string } | null = null;
-	let fieldErrors = {
-		email: '',
-		password: ''
-	};
+    interface FieldErrors {
+        email: string;
+        password: string;
+    }
 
-	function validateForm(): boolean {
-		let isValid = true;
-		fieldErrors = {
-			email: '',
-			password: ''
-		};
+    let error: {
+        type: 'UNVERIFIED_EMAIL' | 'INVALID_CREDENTIALS' | 'ACCOUNT_DISABLED' | 'SERVER_ERROR' | 'VALIDATION_ERROR';
+        message: string;
+    } | null = null;
+    let fieldErrors: FieldErrors = {
+        email: '',
+        password: ''
+    };
 
-		// Email validation
-		if (!email) {
-			fieldErrors.email = 'Email is required';
-			isValid = false;
-		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-			fieldErrors.email = 'Please enter a valid email address';
-			isValid = false;
-		}
+    // Focus email input on mount if empty
+    import { onMount } from 'svelte';
+	import Navbar from '$lib/components/Navbar.svelte';
+    onMount(() => {
+        if (!email && emailInput) {
+            emailInput.focus();
+        }
+    });
 
-		// Password validation
-		if (!password) {
-			fieldErrors.password = 'Password is required';
-			isValid = false;
-		}
+    function validateForm(): boolean {
+        let isValid = true;
+        fieldErrors = {
+            email: '',
+            password: ''
+        };
 
-		if (!isValid) {
-			error = {
-				type: 'VALIDATION_ERROR',
-				message: 'Please fix the errors below'
-			};
-		}
+        // Email validation
+        if (!email) {
+            fieldErrors.email = 'Email is required';
+            isValid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            fieldErrors.email = 'Please enter a valid email address';
+            isValid = false;
+        }
 
-		return isValid;
-	}
-	function handleError(err: any) {
-		const errorMessage = err instanceof Error ? err.message : 'SERVER_ERROR';
+        // Password validation
+        if (!password) {
+            fieldErrors.password = 'Password is required';
+            isValid = false;
+        }
 
-		switch (errorMessage) {
-			case 'INVALID_PASSWORD':
-				error = {
-					type: 'INVALID_PASSWORD',
-					message: 'Incorrect password. Please try again.'
-				};
-				fieldErrors.password = 'Incorrect password';
-				break;
+        if (!isValid) {
+            error = {
+                type: 'VALIDATION_ERROR',
+                message: 'Please fix the errors below'
+            };
+        }
 
-			case 'EMAIL_NOT_FOUND':
-				error = {
-					type: 'EMAIL_NOT_FOUND',
-					message: 'No account found with this email.'
-				};
-				fieldErrors.email = 'Email not found';
-				break;
+        return isValid;
+    }
 
-			case 'UNVERIFIED_EMAIL':
-				error = {
-					type: 'UNVERIFIED_EMAIL',
-					message: 'Please verify your email before logging in.'
-				};
-				break;
+    function handleError(err: any) {
+        const message = err?.response?.message || err?.message || 'An unexpected error occurred';
+        
+        if (message.includes('password')) {
+            error = {
+                type: 'INVALID_CREDENTIALS',
+                message: 'Incorrect email or password. Please try again.'
+            };
+            fieldErrors.password = 'Incorrect password';
+        } else if (message.includes('verification')) {
+            error = {
+                type: 'UNVERIFIED_EMAIL',
+                message: 'Please verify your email before logging in.'
+            };
+        } else if (message.includes('disabled') || message.includes('suspended')) {
+            error = {
+                type: 'ACCOUNT_DISABLED',
+                message: 'Your account has been disabled. Please contact support.'
+            };
+        } else {
+            error = {
+                type: 'SERVER_ERROR',
+                message: 'An unexpected error occurred. Please try again later.'
+            };
+        }
 
-			case 'ACCOUNT_DISABLED':
-				error = {
-					type: 'ACCOUNT_DISABLED',
-					message: 'Your account has been disabled. Please contact support.'
-				};
-				break;
+        if (formElement) {
+            formElement.classList.add('error-shake');
+            setTimeout(() => formElement.classList.remove('error-shake'), 500);
+        }
+    }
 
-			default:
-				error = {
-					type: 'SERVER_ERROR',
-					message: 'An unexpected error occurred. Please try again later.'
-				};
-		}
-	}
-	async function handleSubmit() {
-		if (!validateForm()) return;
+    async function handleSubmit() {
+        if (!validateForm()) return;
+        
         isSubmitting = true;
-		isLoading = true;
-		error = null;
+        error = null;
 
-		try {
-			const authData = await AuthService.login(email, password);
+        try {
+            await AuthService.login({ email, password });
 
-			// Handle remember me
-			if (browser) {
-				if (rememberMe) {
-					localStorage.setItem('rememberedEmail', email);
-					localStorage.setItem('rememberMe', 'true');
-				} else {
-					localStorage.removeItem('rememberedEmail');
-					localStorage.removeItem('rememberMe');
-				}
-			}
+            // Handle remember me
+            if (browser) {
+                if (rememberMe) {
+                    localStorage.setItem('rememberedEmail', email);
+                    localStorage.setItem('rememberMe', 'true');
+                } else {
+                    localStorage.removeItem('rememberedEmail');
+                    localStorage.removeItem('rememberMe');
+                }
+            }
+        } catch (err) {
+            if (err instanceof AuthError) {
+                error = {
+                    type: err.code,
+                    message: err.message
+                };
+                
+                // Show form shake animation for invalid credentials
+                if (err.code === 'INVALID_CREDENTIALS' && formElement) {
+                    formElement.classList.add('error-shake');
+                    setTimeout(() => formElement.classList.remove('error-shake'), 500);
+                }
+            } else {
+                error = {
+                    type: 'SERVER_ERROR',
+                    message: 'An unexpected error occurred. Please try again later.'
+                };
+            }
+        } finally {
+            isSubmitting = false;
+        }
+    }
 
-			// Let AuthService handle the redirect
-		} catch (err) {
-			handleError(err);
-			if (formElement) {
-				formElement.classList.add('error-shake');
-				setTimeout(() => formElement.classList.remove('error-shake'), 500);
-			}
-		} finally {
-			isSubmitting = false;
-		}
-	}
-	function handleKeyPress(event: KeyboardEvent) {
-		if (event.key === 'Enter' && !isSubmitting) {
-			handleSubmit();
-		}
-	}
+    async function handleResendVerification(userEmail: string) {
+        try {
+            isSubmitting = true;
+            await AuthService.resendVerification(userEmail);
+            error = {
+                type: 'UNVERIFIED_EMAIL',
+                message: 'A new verification email has been sent to your inbox.'
+            };
+        } catch (err) {
+            error = {
+                type: 'SERVER_ERROR',
+                message: 'Failed to resend verification email. Please try again later.'
+            };
+        } finally {
+            isSubmitting = false;
+        }
+    }
 
-	async function handleResendVerification(userEmail: string) {
-		try {
-			isLoading = true;
-			await AuthService.resendVerification(userEmail);
-			error = {
-				type: 'UNVERIFIED_EMAIL',
-				message: 'A new verification email has been sent to your inbox.'
-			};
-		} catch (err) {
-			error = {
-				type: 'SERVER_ERROR',
-				message: 'Failed to resend verification email. Please try again later.'
-			};
-		} finally {
-			isSubmitting = false;
-		}
-	}
+
+    function handleKeyPress(event: KeyboardEvent) {
+        if (event.key === 'Enter' && !isSubmitting) {
+            handleSubmit();
+        }
+    }
+
+    
 </script>
 
+<Navbar/>
+
 <div
-	class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8"
+	class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex flex-col justify-center sm:px-6 lg:px-8"
 >
 {#if isSubmitting}
-<LoadingScreen message="Welcome back"/>
+<LoadingScreen message=""/>
 {:else}
 	<div class="sm:mx-auto sm:w-full sm:max-w-md" in:fly={{ y: 20, duration: 700, delay: 200 }}>
-		<img
-			src={logo}
-			alt="Adapo Logo"
-			class="mx-auto h-12 w-auto transform hover:scale-105 transition-transform duration-300"
-			in:scale={{ duration: 400 }}
-		/>
+		
 		<h2
 			class="mt-6 text-center text-3xl font-extrabold text-gray-900"
 			in:fly={{ y: 20, duration: 700, delay: 400 }}
@@ -236,16 +251,7 @@
 					<label for="email" class="block text-sm font-medium text-gray-700"> Email address </label>
 					<div class="relative rounded-md shadow-sm">
 						<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-							<svg
-								class="h-5 w-5 text-gray-400"
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								aria-hidden="true"
-							>
-								<path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-								<path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-							</svg>
+							
 						</div>
 						<input
 							bind:this={emailInput}
@@ -253,7 +259,7 @@
 							type="email"
 							bind:value={email}
 							required
-							class="block w-full pl-10 pr-3 py-2 border {fieldErrors.email
+							class="block w-full  px-4 py-3 border {fieldErrors.email
 								? 'border-red-300'
 								: 'border-gray-300'} 
            rounded-md shadow-sm placeholder-gray-400
@@ -270,20 +276,8 @@
 					<div class="space-y-2">
 						<label for="password" class="block text-sm font-medium text-gray-700"> Password </label>
 						<div class="relative rounded-md shadow-sm">
-							<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-								<svg
-									class="h-5 w-5 text-gray-400"
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 20 20"
-									fill="currentColor"
-									aria-hidden="true"
-								>
-									<path
-										fill-rule="evenodd"
-										d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-										clip-rule="evenodd"
-									/>
-								</svg>
+							<div class="absolute inset-y-0 left-0 px-4 flex items-center pointer-events-none">
+								
 							</div>
 							{#if showPassword}
 								<input
@@ -291,7 +285,7 @@
 									type="text"
 									bind:value={password}
 									required
-									class="pl-10 block w-full border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-shadow duration-200"
+									class="px-4 py-3 block w-full border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-shadow duration-200"
 									placeholder="••••••••"
 								/>
 							{:else}
@@ -300,7 +294,7 @@
 									type="password"
 									bind:value={password}
 									required
-									class="pl-10 block w-full border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-shadow duration-200"
+									class="px-4 py-3 block w-full border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-shadow duration-200"
 									placeholder="••••••••"
 								/>
 							{/if}
@@ -357,14 +351,6 @@
 							</label>
 						</div>
 
-						<div class="text-sm">
-							<a
-								href="/forgot-password"
-								class="font-medium text-indigo-600 hover:text-indigo-500 transition-colors duration-200"
-							>
-								Forgot your password?
-							</a>
-						</div>
 					</div>
 
 					<div>
@@ -405,43 +391,42 @@
 </div>
 
 {#if error}
-	<div
-		class="rounded-md bg-red-50 p-4 shadow-sm mb-6"
-		in:fly={{ y: -20, duration: 300 }}
-		out:fade
-		role="alert"
-	>
-		<div class="flex">
-			<div class="flex-shrink-0">
-				<svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-					<path
-						fill-rule="evenodd"
-						d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-			</div>
-			<div class="ml-3">
-				<h3 class="text-sm font-medium text-red-800">
-					{error.message}
-				</h3>
-				{#if error.type === 'UNVERIFIED_EMAIL'}
-					<div class="mt-2 text-sm text-red-700">
-						<p>Check your email inbox for the verification link or</p>
-						<button
-							class="mt-1 text-red-800 font-medium hover:text-red-900 underline focus:outline-none"
-							on:click={() => handleResendVerification(email)}
-							disabled={isLoading}
-						>
-							Click here to resend verification email
-						</button>
-					</div>
-				{/if}
-			</div>
-		</div>
-	</div>
+    <div
+        class="rounded-md bg-red-50 p-4 shadow-sm mb-6"
+        in:fly={{ y: -20, duration: 300 }}
+        out:fade
+        role="alert"
+    >
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clip-rule="evenodd"
+                    />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">
+                    {error.message}
+                </h3>
+                {#if error.type === 'UNVERIFIED_EMAIL'}
+                    <div class="mt-2 text-sm text-red-700">
+                        <p>Please check your email inbox for the verification link or</p>
+                        <button
+                            class="mt-1 text-red-800 font-medium hover:text-red-900 underline focus:outline-none"
+                            on:click={() => handleResendVerification(email)}
+                            disabled={isSubmitting}
+                        >
+                            Click here to resend verification email
+                        </button>
+                    </div>
+                {/if}
+            </div>
+        </div>
+    </div>
 {/if}
-
 <style lang="postcss">
 	/* Error shake animation */
 	@keyframes error-shake {

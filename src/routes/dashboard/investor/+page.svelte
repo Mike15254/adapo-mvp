@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { investorStore } from '$lib/services/investor.service';
+    import LoadingScreen from '$lib/components/LoadingScreen.svelte';
     import type { PageData } from './$types';
     import {
         TrendingUp,
@@ -13,8 +15,9 @@
     import { fade, fly } from 'svelte/transition';
 
     export let data: PageData;
-
-    $: ({ stats, profile } = data);
+    
+    $: ({ stats, investments, opportunities } = data);
+    $: ({ isLoading, error } = $investorStore);
 
     function formatCurrency(amount: number): string {
         return new Intl.NumberFormat('en-KE', {

@@ -5,7 +5,9 @@
     import logo from "../assets/adapo-logo.png";
     import { goto } from '$app/navigation';
 	import { AuthService } from '$lib/services/auth.service';
+	import LoadingScreen from './LoadingScreen.svelte';
     
+  let isSubmitting = false;
     interface NavItem {
       label: string;
       href: string;
@@ -53,8 +55,44 @@
             console.error('Logout error:', error);
         }
     }
+
+    function handleKeydown(event: KeyboardEvent) {
+        if (event.key === 'Escape' && isMobileMenuOpen) {
+            isMobileMenuOpen = false;
+        }
+    }
+
+    async function handleNavigation(href: string, event?: Event) {
+        if (event) event.preventDefault();
+        
+        if (isMobileMenuOpen) {
+            isMobileMenuOpen = false;
+        }
+        
+        if (isProfileMenuOpen) {
+            isProfileMenuOpen = false;
+        }
+
+        try {
+            isSubmitting = true;
+
+            if (!$authStore.isAuthenticated && href.includes('/dashboard')) {
+                await goto('/login');
+                return;
+            }
+
+            await goto(href);
+        } catch (error) {
+            console.error('Navigation error:', error);
+        } finally {
+            isSubmitting = false;
+        }
+    }
   </script>
-  
+    <svelte:window on:keydown={handleKeydown}/>
+    {#if isSubmitting}
+    <LoadingScreen />
+    {:else}
   <header class="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-lg">
     <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 lg:px-8 py-4">
       <!-- Logo and Navigation -->
@@ -106,12 +144,14 @@
               >
                 <a 
                   href={`/dashboard/${$authStore.user.role}`} 
+                  on:click|preventDefault={(e) => handleNavigation(`/dashboard/${$authStore.user.role}`, e)}
                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   Dashboard
                 </a>
                 <a 
-                  href={`/dashboard/${$authStore.user.role}/profile`} 
+                  href={`/dashboard/${$authStore.user.role}/account`} 
+                  on:click|preventDefault={(e) => handleNavigation(`/dashboard/${$authStore.user.role}`, e)}
                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   Profile
@@ -241,6 +281,7 @@
         </div>
       </div>
     </div>
+  {/if}
   {/if}
   
   <style>

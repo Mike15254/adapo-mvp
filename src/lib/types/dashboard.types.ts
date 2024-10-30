@@ -1,30 +1,9 @@
+// src/lib/types/dashboard.types.ts
+import type { AuthUser } from './auth.types';
+
 export type UpdateType = 'milestone' | 'financial' | 'team' | 'general';
-
-export interface StartupUpdate {
-    id: string;
-    startup: string;
-    title: string;
-    content: string;
-    update_type: UpdateType;
-    attachments?: string[];
-    created: string;
-}
-
-export interface UpdatesPageData {
-    startup: StartupProfile | null;
-    updates: StartupUpdate[];
-    error?: string;
-}
-export interface User {
-    id: string;
-    email: string;
-    name: string;
-    role: 'investor' | 'startup';
-    profile_picture?: string;
-    account_status: 'pending' | 'active' | 'suspended';
-    verification_status: 'unverified' | 'pending' | 'verified';
-    registration_date: string;
-}
+export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+export type IndustryType = 'technology' | 'healthcare' | 'finance' | 'education' | 'agriculture' | 'other';
 
 export interface StartupProfile {
     id: string;
@@ -32,12 +11,12 @@ export interface StartupProfile {
     company_name: string;
     business_registration_number: string;
     description: string;
-    industry: 'technology' | 'healthcare' | 'finance' | 'education' | 'agriculture' | 'other';
+    industry: IndustryType;
     verification_documents?: string;
-    verification_status: 'unverified' | 'pending' | 'verified' | 'rejected';
+    verification_status: VerificationStatus;
     team_members: TeamMember[];
     logo?: string;
-    social_links?: SocialLinks;
+    social_links: SocialLinks;
     funding_raised_total: number;
     investor_count: number;
     founded_Date: string;
@@ -64,7 +43,7 @@ export interface StartupUpdate {
     startup: string;
     title: string;
     content: string;
-    update_type: 'milestone' | 'financial' | 'general' | 'team';
+    update_type: UpdateType;
     attachments?: string[];
     created: string;
 }
@@ -85,11 +64,13 @@ export interface DashboardStats {
     progressPercentage: number;
     totalInvestors: number;
     recentInvestments: Investment[];
-    verificationStatus: 'unverified' | 'pending' | 'verified' | 'rejected';
+    verificationStatus: VerificationStatus;
 }
 
-export interface LayoutData {
-    user: User;
+export interface DashboardState {
     startup: StartupProfile | null;
-    stats: DashboardStats;
+    stats: DashboardStats | null;
+    updates: StartupUpdate[];
+    isLoading: boolean;
+    error: string | null;
 }
