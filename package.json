@@ -42,6 +42,7 @@
 	"type": "module",
 	"dependencies": {
 		"@sveltejs/adapter-node": "^5.2.5",
-		"lucide-svelte": "^0.453.0"
+		"lucide-svelte": "^0.453.0",
+		"recharts": "^2.13.2"
 	}
 }

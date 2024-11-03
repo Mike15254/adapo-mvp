@@ -1,5 +1,10 @@
 <script lang="ts">
-	export let message = '';
+	import { onMount, onDestroy } from 'svelte';
+    import { fade } from 'svelte/transition';
+    import type { LoadingType } from '$lib/stores/loading.store';
+
+    export let message = '';
+    // export let type: LoadingType = 'page';
 
 	const loadingSvgs = [
 		// 1. Chart/Analytics Icon
@@ -36,47 +41,45 @@
 
 	let currentIndex = 0;
 
-	import { onMount, onDestroy } from 'svelte';
 
 	let interval: ReturnType<typeof setInterval>;
 
 	onMount(() => {
-		interval = setInterval(() => {
-			currentIndex = (currentIndex + 1) % loadingSvgs.length;
-		}, 300);
-	});
+        interval = setInterval(() => {
+            currentIndex = (currentIndex + 1) % loadingSvgs.length;
+        }, 300);
+    });
 
-	onDestroy(() => {
-		if (interval) clearInterval(interval);
-	});
+    onDestroy(() => {
+        if (interval) clearInterval(interval);
+    });
 </script>
 
-<div class="flex flex-col items-center justify-center min-h-screen  px-4 bg-white">
-	<div class="w-full max-w-sm text-center">
-		<h2 class="text-xl md:text-2xl font-semibold text-gray-800 mb-8">
-			{message}
-		</h2>
+<div 
+    class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-95 z-50"
+    transition:fade={{ duration: 200 }}
+>
+    <div class="w-full max-w-sm text-center px-4">
+        <h2 class="text-xl md:text-2xl font-semibold text-gray-800 mb-8">
+            {message}
+        </h2>
 
-		<div class="relative w-16 h-16 mx-auto">
-			{#each loadingSvgs as svg, i}
-				<div
-					class="absolute inset-0 transition-all duration-500 ease-in-out text-[#87ddfd] rounded-full"
-					style="opacity: {currentIndex === i ? '1' : '0'}; transform: scale({currentIndex === i ? '1' : '0.8'})"
-				>
-					{@html svg}
-				</div>
-			{/each}
-		</div>
-	</div>
+        <div class="relative w-16 h-16 mx-auto">
+            {#each loadingSvgs as svg, i}
+                <div
+                    class="absolute inset-0 transition-all duration-500 ease-in-out text-[#87ddfd] rounded-full"
+                    style="opacity: {currentIndex === i ? '1' : '0'}; transform: scale({currentIndex === i ? '1' : '0.8'})"
+                >
+                    {@html svg}
+                </div>
+            {/each}
+        </div>
+    </div>
 </div>
 
 <style>
-	@keyframes pulse {
-		0%, 100% {
-			transform: scale(1);
-		}
-		50% {
-			transform: scale(0.95);
-		}
-	}
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(0.95); }
+    }
 </style>

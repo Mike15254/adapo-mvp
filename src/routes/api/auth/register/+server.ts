@@ -1,55 +1,63 @@
-// src/routes/api/auth/register/+server.ts
-import { json, type RequestHandler } from '@sveltejs/kit';
 import { pb } from '$lib/pocketbase';
-import type { User } from '$lib/types/';
+import type { RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 
 export const POST: RequestHandler = async ({ request }) => {
     try {
-        const body = await request.json() as Partial<User> & { 
-            password: string; 
-            passwordConfirm: string;
-        };
+        const data = await request.json();
+        const { firstName, lastName, email, password, passwordConfirm, role } = data;
 
-        console.log('Received registration data:', JSON.stringify(body, null, 2));
-
-        if (!body.email || !body.password || !body.passwordConfirm) {
-            return json({ error: 'Email and password are required' }, { status: 400 });
+        // Validate required fields
+        if (!firstName || !lastName || !email || !password || !passwordConfirm || !role) {
+            return json(
+                { error: 'All fields are required' },
+                { status: 400 }
+            );
         }
 
-        if (body.password !== body.passwordConfirm) {
-            return json({ error: 'Passwords do not match' }, { status: 400 });
+        // Check if email already exists
+        try {
+            const existingUser = await pb.collection('users').getFirstListItem(`email = "${email}"`);
+            if (existingUser) {
+                return json(
+                    { error: 'Email already exists. Please log in or use a different email.' },
+                    { status: 400 }
+                );
+            }
+        } catch (e) {
+            // User not found - this is what we want
         }
 
-        // Add default values for required fields
-        const userData = {
-            email: body.email,
-            password: body.password,
-            passwordConfirm: body.passwordConfirm,
-            name: body.name,
-            role: body.role || 'investor',
-            account_status: 'pending',
-            verification_status: 'unverified',
-            registration_date: new Date().toISOString().split('T')[0]
-        };
+        // Create user with combined name
+        const user = await pb.collection('users').create({
+            email,
+            password,
+            passwordConfirm,
+            name: `${firstName} ${lastName}`,
+            role
+        });
 
-        console.log('Processed user data:', JSON.stringify(userData, null, 2));
+        // Send verification email 
+        await pb.collection('users').requestVerification(email);
 
-        const user = await pb.collection('users').create(userData);
-        console.log('User created successfully:', user);
-
-        // Authenticate the user after registration
-        const authData = await pb.collection('users').authWithPassword(body.email, body.password);
-
-        return json({ user: authData.record });
-    } catch (error) {
-        console.error('Registration error:', error);
+        return json({ user });
+    } catch (error: any) {
+        console.error('Server registration error:', error);
         
-        if (error instanceof Error) {
-            console.error('Error details:', error.message);
-            return json({ error: error.message }, { status: 400 });
-        } else {
-            console.error('Unexpected error:', error);
-            return json({ error: 'An unexpected error occurred during registration' }, { status: 500 });
+        // Handle specific errors
+        let errorMessage = 'Registration failed';
+
+        if (error.status === 400) {
+            if (error.data?.data?.email) {
+                errorMessage = 'Email is invalid or already in use.';
+            } else if (error.data?.data?.password) {
+                errorMessage = 'Password does not meet requirements.';
+            }
         }
+
+        return json(
+            { error: errorMessage },
+            { status: error.status || 500 }
+        );
     }
 };

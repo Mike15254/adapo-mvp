@@ -12,5 +12,18 @@ export function clearPocketBaseAuth() {
     }
 }
 
+// Helper to get the current user
+export function getCurrentUser() {
+    return pb.authStore.model;
+}
+
+// Helper to check if user is authenticated
+export function isAuthenticated() {
+    return pb.authStore.isValid;
+}
+
+// Export types for better TypeScript support
+export type { Record, Admin } from 'pocketbase';
+
 // Export the auth store for direct access if needed
 export const pocketbaseAuthStore = pb.authStore;

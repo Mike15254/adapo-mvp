@@ -1,37 +1,32 @@
-// src/lib/types/auth.types.ts
-import type { Record, Admin } from 'pocketbase';
+import type { RecordModel } from 'pocketbase';
 
 export type UserRole = 'investor' | 'startup';
 export type VerificationStatus = 'unverified' | 'pending' | 'verified';
 export type AccountStatus = 'pending' | 'active' | 'suspended';
 
-// Base user fields that must be present
-export interface AuthUser extends Record {
-    id: string;
+export interface BaseAuthUser extends RecordModel {
     email: string;
-    verified: boolean;
-    name: string;
     username: string;
-    role: UserRole;
-    verification_status: VerificationStatus;
-    account_status: AccountStatus;
-    onboarding_completed?: boolean;
     emailVisibility: boolean;
-    created: string;
-    updated: string;
-    collectionId: string;
-    collectionName: string;
-    expand: string;
-    profile_picture?: string;
+    verified: boolean;
 }
 
-export interface RegisterData {
-    email: string;
-    password: string;
-    passwordConfirm: string;
+export interface AuthUser extends BaseAuthUser {
     name: string;
+    profile_picture?: string;
     role: UserRole;
-    username: string;
+    account_status: AccountStatus;
+    verification_status: VerificationStatus;
+    registration_date?: string;
+    verification_code?: string;
+    verification_code_expires?: string;
+}
+
+export interface AuthState {
+    user: AuthUser | null;
+    isAuthenticated: boolean;
+    isLoading: boolean;
+    error: string | null;
 }
 
 export interface LoginData {
@@ -39,56 +34,49 @@ export interface LoginData {
     password: string;
 }
 
+export interface RegisterData {
+    email: string;
+    password: string;
+    passwordConfirm: string;
+    firstName: string; // Keep firstName
+    lastName: string;  // Keep lastName
+    role: string;
+}
+
 export interface AuthResponse {
-    token: string;
     user: AuthUser;
+    token: string;
 }
 
-export interface AuthState {
-    user: AuthUser | null;
-    token: string | null;
-    isAuthenticated: boolean;
-    isLoading: boolean;
-    error: string | null;
-}
-
-// Type guard to check if a record is an AuthUser
-export function isAuthUser(record: Record | Admin | null): record is AuthUser {
-    if (!record) return false;
-    
+// Type guard for AuthUser
+export function isAuthUser(user: any): user is AuthUser {
     return (
-        'email' in record &&
-        'name' in record &&
-        'username' in record &&
-        'role' in record &&
-        'verification_status' in record &&
-        'account_status' in record
+        user &&
+        typeof user.email === 'string' &&
+        typeof user.username === 'string' &&
+        typeof user.name === 'string' &&
+        typeof user.role === 'string' &&
+        typeof user.verification_status === 'string' &&
+        typeof user.account_status === 'string'
     );
 }
 
-// Transform PocketBase record to AuthUser
-export function transformToAuthUser(record: Record | null): AuthUser | null {
-    if (!record || !isAuthUser(record)) {
-        console.error('Invalid user record:', record);
-        return null;
-    }
-
-    return {
-        id: record.id,
-        email: record.email,
-        verified: record.verified,
-        name: record.name,
-        username: record.username,
-        role: record.role as UserRole,
-        verification_status: record.verification_status as VerificationStatus,
-        account_status: record.account_status as AccountStatus,
-        onboarding_completed: record.onboarding_completed,
-        emailVisibility: record.emailVisibility,
-        created: record.created,
-        updated: record.updated,
-        collectionId: record.collectionId,
-        collectionName: record.collectionName,
-        expand: record.expand,
-        profile_picture: record.profile_picture
-    };
+export interface StartupProfile {
+    id: string;
+    user: string;
+    company_name: string;
+    business_registration_number: string;
+    description: string;
+    industry: 'technology' | 'healthcare' | 'finance' | 'education' | 'agriculture' | 'other';
+    verification_documents?: string;
+    verification_status: VerificationStatus;
+    team_members: any[];
+    logo?: string;
+    social_links?: Record<string, string>;
+    funding_raised_total: number;
+    investor_count: number;
+    founded_Date: string;
+    pitch_deck?: string;
+    funding_goal: number;
+    funds_raised: number;
 }

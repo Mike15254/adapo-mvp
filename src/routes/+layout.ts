@@ -2,55 +2,67 @@
 import type { LayoutLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
-import { AuthService } from '$lib/services/auth.service';
-import type { AuthUser } from '$lib/types/auth.types';
+import { authStore } from '$lib/stores/auth.store';
 
-interface LayoutData {
-    user: AuthUser | null;
-    isAuthenticated: boolean;
-    allowedRoute: boolean;
-}
+const publicPaths = ['/login', '/register', '/verify-email', '/forgot-password', '/', '/about'];
 
-export const load: LayoutLoad = async ({ url }): Promise<LayoutData> => {
+export const load: LayoutLoad = async ({ url }) => {
+    const currentPath = url.pathname;
+    // console.log('🚀 [Root Layout] Current path:', currentPath);
+
     if (!browser) {
-        return { user: null, isAuthenticated: false, allowedRoute: true };
+        // console.log('⚠️ [Root Layout] Server-side rendering, returning null state');
+        // return {
+        //     user: null,
+        //     isAuthenticated: false,
+        // };
     }
 
-    // Initialize auth state
-    await AuthService.initialize();
-
-    const user = AuthService.getCurrentUser();
+    // console.log('🔄 [Root Layout] Initializing auth state...');
+    const user = await authStore.initialize();
     const isAuthenticated = !!user;
-
-    // Define public routes that don't require verification
-    const publicRoutes = ['/login', '/register', '/verify-email', '/forgot-password'];
-    const isPublicRoute = publicRoutes.some(route => url.pathname.startsWith(route));
     
-    // Define protected routes
-    const protectedRoutes = ['/dashboard'];
-    const isProtectedRoute = protectedRoutes.some(route => url.pathname.startsWith(route));
+    // console.log('👤 [Root Layout] Auth State:', {
+    //     user: user ? { id: user.id, role: user.role } : null,
+    //     isAuthenticated,
+    //     path: currentPath
+    // });
 
-    // Handle routing logic
-    if (isAuthenticated && user) {
-        if (!user.verified) {
-            // Allow unverified users to see their profile info but restrict access
-            if (isProtectedRoute && url.pathname !== '/verify-email') {
-                throw redirect(302, '/verify-email');
-            }
-        } else if (isPublicRoute) {
-            // Redirect verified users away from auth pages
-            throw redirect(302, `/dashboard/${user.role}`);
+    // Check if current path is public
+    const isPublicPath = publicPaths.some(path => currentPath.startsWith(path));
+    // console.log('🔒 [Root Layout] Path access:', { isPublicPath, currentPath });
+
+    // Handle protected routes
+    if (currentPath.startsWith('/dashboard')) {
+        // console.log('🛡️ [Root Layout] Checking dashboard access...');
+        
+        if (!isAuthenticated) {
+            // console.log('❌ [Root Layout] Not authenticated, redirecting to login');
+            throw redirect(302, `/login?redirect=${encodeURIComponent(currentPath)}`);
         }
-    } else if (isProtectedRoute) {
-        // Redirect unauthenticated users
-        throw redirect(302, '/login');
+
+        // Verify user role matches the dashboard type
+        const dashboardRole = currentPath.split('/')[2];
+        // console.log('👥 [Root Layout] Checking role match:', {
+        //     userRole: user?.role,
+        //     dashboardRole
+        // });
+
+        if (dashboardRole && user?.role !== dashboardRole) {
+            // console.log('⚠️ [Root Layout] Role mismatch, redirecting to correct dashboard');
+            throw redirect(302, `/dashboard/${user?.role}`);
+        }
+    }
+
+    // Redirect authenticated users from auth pages to their dashboard
+    if (isAuthenticated && (currentPath === '/login' || currentPath === '/register')) {
+        // console.log('🔄 [Root Layout] Authenticated user on auth page, redirecting to dashboard');
+        throw redirect(302, `/dashboard/${user.role}`);
     }
 
     return {
         user,
         isAuthenticated,
-        // Route is allowed if it's public, or user is verified for protected routes
-        allowedRoute: isPublicRoute || (isAuthenticated && user?.verified) || false
     };
 };
 

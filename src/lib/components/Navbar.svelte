@@ -1,293 +1,271 @@
 <script lang="ts">
-    import { page } from '$app/stores';
-    import { fly } from 'svelte/transition';
-    import { authStore } from '$lib/stores/authStore';
-    import logo from "../assets/adapo-logo.png";
-    import { goto } from '$app/navigation';
-	import { AuthService } from '$lib/services/auth.service';
-	import LoadingScreen from './LoadingScreen.svelte';
-    
+  import { page } from '$app/stores';
+  import { authStore } from '$lib/stores/auth.store';
+  import { fade, fly } from 'svelte/transition';
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import LoadingScreen from './LoadingScreen.svelte';
+
+  // State
+  let isProfileMenuOpen = false;
+  let isMobileMenuOpen = false;
   let isSubmitting = false;
-    interface NavItem {
-      label: string;
-      href: string;
-    }
-  
-    const navItems: NavItem[] = [
-      { label: 'Invest', href: '/invest'},
-      { label: 'Raise', href: '/raise' }
-    ];
-  
-    let isMobileMenuOpen = false;
-    let isProfileMenuOpen = false;
-    
-    function toggleMobileMenu(): void {
-      isMobileMenuOpen = !isMobileMenuOpen;
-      if (isMobileMenuOpen) isProfileMenuOpen = false;
-    }
-  
-    function closeMobileMenu(): void {
-      isMobileMenuOpen = false;
-    }
-  
-    function toggleProfileMenu(): void {
+  let userInitials = '';
+  let avatarUrl = '/default-avatar.svg';
+
+  // Navigation items
+  const navItems = [
+      { href: '/', label: 'Home', requiresAuth: false },
+      { href: '/discover', label: 'Discover', requiresAuth: true },
+      { href: '/about', label: 'About', requiresAuth: false },
+  ];
+
+  $: if ($authStore.user) {
+      userInitials = $authStore.user.name
+          .split(' ')
+          .map(n => n[0])
+          .join('')
+          .toUpperCase();
+      avatarUrl = $authStore.user.profile_picture || '/default-avatar.svg';
+  }
+
+  // Functions
+  const toggleProfileMenu = () => {
       isProfileMenuOpen = !isProfileMenuOpen;
-      if (isProfileMenuOpen) isMobileMenuOpen = false;
-    }
-  
-  
-  
-    // Generate initials avatar URL using DiceBear
-    function getAvatarUrl(name: string, email: string): string {
-      return `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(name || email)}&radius=10&backgroundColor=4F46E5&textColor=ffffff`;
-    }
-  
-    $: userInitials = $authStore.user?.name ? 
-      $authStore.user.name.split(' ').map((n: any[]) => n[0]).join('').toUpperCase() : '';
-    
-    $: avatarUrl = $authStore.user ? 
-      getAvatarUrl($authStore.user.name, $authStore.user.email) : '';
+  };
 
-      async function handleLogout() {
-        try {
-            await AuthService.logout();
-        } catch (error) {
-            console.error('Logout error:', error);
-        }
-    }
+  const toggleMobileMenu = () => {
+      isMobileMenuOpen = !isMobileMenuOpen;
+  };
 
-    function handleKeydown(event: KeyboardEvent) {
-        if (event.key === 'Escape' && isMobileMenuOpen) {
-            isMobileMenuOpen = false;
-        }
-    }
+  const handleNavigation = async (href: string, item: { requiresAuth?: boolean }) => {
+      if (item.requiresAuth && !$authStore.isAuthenticated) {
+          goto(`/login?redirect=${href}`);
+          return;
+      }
+      
+      isMobileMenuOpen = false;
+      isProfileMenuOpen = false;
+      await goto(href);
+  };
 
-    async function handleNavigation(href: string, event?: Event) {
-        if (event) event.preventDefault();
-        
-        if (isMobileMenuOpen) {
-            isMobileMenuOpen = false;
-        }
-        
-        if (isProfileMenuOpen) {
-            isProfileMenuOpen = false;
-        }
+  const handleLogout = async () => {
+      try {
+          isSubmitting = true;
+          await authStore.logout();
+          await goto('/');
+      } catch (error) {
+          console.error('Logout error:', error);
+      } finally {
+          isSubmitting = false;
+      }
+  };
 
-        try {
-            isSubmitting = true;
+  // Click outside handling
+  let profileMenuRef: HTMLDivElement;
 
-            if (!$authStore.isAuthenticated && href.includes('/dashboard')) {
-                await goto('/login');
-                return;
-            }
+  const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef && !profileMenuRef.contains(event.target as Node)) {
+          isProfileMenuOpen = false;
+      }
+  };
 
-            await goto(href);
-        } catch (error) {
-            console.error('Navigation error:', error);
-        } finally {
-            isSubmitting = false;
-        }
-    }
-  </script>
-    <svelte:window on:keydown={handleKeydown}/>
-    {#if isSubmitting}
+  onMount(() => {
+      document.addEventListener('click', handleClickOutside);
+      return () => {
+          document.removeEventListener('click', handleClickOutside);
+      };
+  });
+</script>
+
+
+<svelte:window on:click={handleClickOutside} />
+
+{#if isSubmitting}
     <LoadingScreen />
-    {:else}
-  <header class="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-lg">
-    <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 lg:px-8 py-4">
-      <!-- Logo and Navigation -->
-      <div class="flex items-center">
-        <a href="/" class="mr-4">
-          <img src={logo} loading="lazy" width="32" height="32" alt="Adapo Logo" class="h-8 w-auto" />
-        </a>
-        <ul class="hidden md:flex items-center space-x-6">
-          {#each navItems as item}
-            <li class="font-dm text-base font-medium text-slate-700">
-              <a 
-                href={item.href} 
-                class="flex items-center hover:text-indigo-600 transition-colors duration-200" 
-                class:text-indigo-600={$page.url.pathname === item.href}
-              >
-                {item.label}
-              </a>
-            </li>
-          {/each}
-        </ul>
-      </div>
-  
-      <!-- Auth and Profile Section -->
-      <div class="flex items-center space-x-4">
-        {#if $authStore.isAuthenticated && $authStore.user}
-          <div class="relative">
-            <!-- Desktop Profile Button -->
-            <button 
-              on:click={toggleProfileMenu} 
-              class="flex items-center space-x-3 text-slate-700 hover:text-indigo-600 transition-colors duration-200"
-            >
-              <div class="h-8 w-8 rounded-full overflow-hidden shrink-0">
-                <img 
-                  src={avatarUrl} 
-                  alt={userInitials}
-                  class="h-full w-full object-cover"
-                />
-              </div>
-              <span class="hidden md:block font-medium text-sm">
-                {$authStore.user.name}
-              </span>
-            </button>
-            
-            <!-- Profile Dropdown -->
-            {#if isProfileMenuOpen}
-              <div 
-                class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-100"
-                transition:fly={{ y: -10, duration: 200 }}
-              >
-                <a 
-                  href={`/dashboard/${$authStore.user.role}`} 
-                  on:click|preventDefault={(e) => handleNavigation(`/dashboard/${$authStore.user.role}`, e)}
-                  class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Dashboard
-                </a>
-                <a 
-                  href={`/dashboard/${$authStore.user.role}/account`} 
-                  on:click|preventDefault={(e) => handleNavigation(`/dashboard/${$authStore.user.role}`, e)}
-                  class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Profile
-                </a>
-                <button 
-                  on:click={handleLogout} 
-                  class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  Logout
-                </button>
-              </div>
-            {/if}
-          </div>
-        {:else}
-          <a 
-            href="/login" 
-            class="text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors duration-200"
-          >
-            Login
-          </a>
-          <a 
-            href="/onboarding" 
-            class="hidden md:inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-600 transition-colors duration-200"
-          >
-            Sign up
-          </a>
-        {/if}
-  
-        <!-- Mobile Menu Button -->
-        <button 
-          type="button" 
-          class="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-          on:click={toggleMobileMenu} 
-          aria-label="Toggle mobile menu"
-        >
-          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-16 6h16" />
-          </svg>
-        </button>
-      </div>
-    </nav>
-  </header>
-  
-  <!-- Mobile Menu -->
-  {#if isMobileMenuOpen}
-    <button 
-      class="fixed inset-0 bg-gray-600 bg-opacity-50 z-40 transition-opacity"
-      on:click={closeMobileMenu}
-      transition:fly={{ duration: 200 }}
-    ></button>
-    
-    <div
-      class="fixed right-0 top-0 w-64 h-full bg-white z-50 shadow-lg flex flex-col"
-      transition:fly={{ x: 300, duration: 300 }}
-    >
-      <div class="p-4 flex-grow">
-        <!-- Mobile Menu Header -->
-        <div class="flex justify-between items-center mb-6">
-          {#if $authStore.isAuthenticated && $authStore.user}
-            <div class="flex items-center space-x-3">
-              <div class="h-8 w-8 rounded-full overflow-hidden">
-                <img 
-                  src={avatarUrl} 
-                  alt={userInitials}
-                  class="h-full w-full object-cover"
-                />
-              </div>
-              <span class="font-medium text-sm text-gray-900">
-                {$authStore.user.name}
-              </span>
+{:else}
+    <header class="sticky top-0 z-50 bg-white border-b border-gray-100">
+        <nav class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex h-16 justify-between items-center">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <a href="/" class="flex-shrink-0">
+                        <img 
+                            class="h-8 w-auto" 
+                            src="/adapo.png" 
+                            alt="Adapo" 
+                        />
+                    </a>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex md:items-center md:space-x-6">
+                    {#each navItems as item}
+                        <a
+                            href={item.href}
+                            class="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors
+                                   {$page.url.pathname === item.href ? 'text-indigo-600' : ''}"
+                            on:click|preventDefault={() => handleNavigation(item.href, item)}
+                        >
+                            {item.label}
+                        </a>
+                    {/each}
+                </div>
+
+                <!-- Auth/Profile Section -->
+                <div class="flex items-center space-x-4">
+                    {#if $authStore.isAuthenticated && $authStore.user}
+                        <div class="relative profile-menu">
+                            <button
+                                class="flex items-center space-x-3 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                on:click={toggleProfileMenu}
+                            >
+                                <img
+                                    class="h-8 w-8 rounded-full"
+                                    src={avatarUrl}
+                                    alt={userInitials}
+                                />
+                                <span class="hidden md:block text-sm font-medium text-gray-700">
+                                    {$authStore.user.name}
+                                </span>
+                            </button>
+
+                            {#if isProfileMenuOpen}
+                                <div
+                                    class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5"
+                                    transition:fly={{ y: -10, duration: 200 }}
+                                >
+                                    <a
+                                        href={`/dashboard/${$authStore.user.role}`}
+                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        on:click|preventDefault={() => handleNavigation(`/dashboard/${$authStore.user.role}`, { requiresAuth: true })}
+                                    >
+                                        Dashboard
+                                    </a>
+                                    
+                                    <button
+                                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        on:click={handleLogout}
+                                    >
+                                        Sign out
+                                    </button>
+                                </div>
+                            {/if}
+                        </div>
+                    {:else}
+                        <a
+                            href="/login"
+                            class="text-sm font-medium text-gray-700 hover:text-indigo-600"
+                        >
+                            Sign in
+                        </a>
+                        <a
+                            href="/onboarding"
+                            class="inline-flex items-center justify-center px-4 py-2 border border-transparent
+                                   text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700
+                                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            Get Started
+                        </a>
+                    {/if}
+
+                    <!-- Mobile menu button -->
+                    <button
+                        type="button"
+                        class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400
+                               hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2
+                               focus:ring-inset focus:ring-indigo-500"
+                        on:click={toggleMobileMenu}
+                    >
+                        <span class="sr-only">Open main menu</span>
+                        <svg
+                            class="h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16"
+                            />
+                        </svg>
+                    </button>
+                </div>
             </div>
-          {/if}
-          <button 
-            on:click={closeMobileMenu} 
-            class="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            aria-label="Close mobile menu"
-          >
-            <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
-          </button>
-        </div>
-  
-        <!-- Mobile Menu Items -->
-        <div class="space-y-4">
-          {#each navItems as item}
-            <a 
-              href={item.href} 
-              on:click={closeMobileMenu} 
-              class="block py-2 text-base font-medium text-gray-700 hover:text-indigo-600 transition-colors duration-200"
-              class:text-indigo-600={$page.url.pathname === item.href}
+        </nav>
+
+        <!-- Mobile menu -->
+        {#if isMobileMenuOpen}
+            <div
+                class="md:hidden mobile-menu"
+                transition:fly={{ x: 300, duration: 200 }}
             >
-              {item.label}
-            </a>
-          {/each}
-  
-          {#if $authStore.isAuthenticated && $authStore.user}
-            <a 
-              href={`/dashboard/${$authStore.user.role}`}
-              on:click={closeMobileMenu} 
-              class="block py-2 text-base font-medium text-gray-700 hover:text-indigo-600"
-            >
-              Dashboard
-            </a>
-            <a 
-              href={`/dashboard/${$authStore.user.role}/profile`}
-              on:click={closeMobileMenu} 
-              class="block py-2 text-base font-medium text-gray-700 hover:text-indigo-600"
-            >
-              Profile
-            </a>
-            <button 
-              on:click={handleLogout}
-              class="block w-full text-left py-2 text-base font-medium text-gray-700 hover:text-indigo-600"
-            >
-              Logout
-            </button>
-          {:else}
-            <a 
-              href="/onboarding"
-              on:click={closeMobileMenu}
-              class="block py-2 text-base font-medium text-indigo-600 hover:text-indigo-700"
-            >
-              Sign Up
-            </a>
-          {/if}
-        </div>
-      </div>
-    </div>
-  {/if}
-  {/if}
-  
-  <style>
+                <div class="pt-2 pb-3 space-y-1">
+                    {#each navItems as item}
+                        <a
+                            href={item.href}
+                            class="block pl-3 pr-4 py-2 text-base font-medium text-gray-700 hover:text-indigo-600
+                                   hover:bg-gray-50 {$page.url.pathname === item.href ? 'text-indigo-600 bg-indigo-50' : ''}"
+                            on:click|preventDefault={() => handleNavigation(item.href, item)}
+                        >
+                            {item.label}
+                        </a>
+                    {/each}
+                </div>
+
+                {#if $authStore.isAuthenticated && $authStore.user}
+                    <div class="pt-4 pb-3 border-t border-gray-200">
+                        <div class="flex items-center px-4">
+                            <div class="flex-shrink-0">
+                                <img
+                                    class="h-10 w-10 rounded-full"
+                                    src={avatarUrl}
+                                    alt={userInitials}
+                                />
+                            </div>
+                            <div class="ml-3">
+                                <div class="text-base font-medium text-gray-800">
+                                    {$authStore.user.name}
+                                </div>
+                                <div class="text-sm font-medium text-gray-500">
+                                    {$authStore.user.email}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 space-y-1">
+                            <a
+                                href={`/dashboard/${$authStore.user.role}`}
+                                class="block px-4 py-2 text-base font-medium text-gray-700 hover:text-indigo-600
+                                       hover:bg-gray-50"
+                                on:click|preventDefault={() => handleNavigation(`/dashboard/${$authStore.user.role}`, { requiresAuth: true })}
+                            >
+                                Dashboard
+                            </a>
+                           
+                            <button
+                                class="block w-full text-left px-4 py-2 text-base font-medium text-gray-700
+                                       hover:text-indigo-600 hover:bg-gray-50"
+                                on:click={handleLogout}
+                            >
+                                Sign out
+                            </button>
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        {/if}
+    </header>
+{/if}
+
+<style lang="postcss">
+    /* Add any custom styles here */
     :global(body) {
-      overflow-x: hidden;
+        @apply overflow-x-hidden;
     }
-  
-   
-  </style>
+
+    .mobile-menu {
+        @apply fixed inset-0 z-50 bg-white transform transition-transform duration-300 ease-in-out;
+    }
+</style>
