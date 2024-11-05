@@ -33,25 +33,26 @@ export interface CampaignDocuments {
 
 
 export interface StartupCampaign extends Record {
-    user: string;
-    company_name: string;
-    description: string;
-    industry: string;
-    funding_goal: number;
-    funds_raised: number;
-    verification_status: 'unverified' | 'pending' | 'verified' | 'rejected';
-    team_members: Array<{
-        name: string;
-        role: string;
-        bio: string;
-        linkedin?: string;
-    }>;
-    social_links: {
-        website?: string;
-        linkedin?: string;
-        twitter?: string;
-    };
-}
+   
+        user: string;
+        company_name: string;
+        description: string;
+        industry: string;
+        funding_goal: number;
+        funds_raised: number;
+        verification_status: 'unverified' | 'pending' | 'verified' | 'rejected';
+        team_members: Array<{
+            name: string;
+            role: string;
+            bio: string;
+            linkedin?: string;
+        }>;
+        social_links: {
+            website?: string;
+            linkedin?: string;
+            twitter?: string;
+        };
+    }
 
 export interface DashboardData {
     user: {
@@ -222,5 +223,17 @@ export function mapRecordToWalletTransaction(record: Record): WalletTransaction 
         description: record.description,
         payment_method: record.payment_method,
         metadata: record.metadata
+    };
+}
+
+export interface ExpandedTransaction extends WalletTransaction {
+    expand?: {
+        user?: {
+            id: string;
+            email: string;
+            name?: string;
+            profile_picture?: string;
+            investors_profiles?: InvestorProfile[];
+        };
     };
 }
