@@ -10,7 +10,8 @@
 		AlertCircle,
 		CheckCircle,
 		XCircle,
-		Loader2
+		Loader2,
+		Target
 	} from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
@@ -78,12 +79,16 @@
 		}
 	}
 
+    function formatPercent(value: number): string {
+        return `${Math.round(value * 100) / 100}%`;
+    }
   
 	$: statusInfo = getStatusMessage(verificationStatus);
-	$: StatusIcon = getStatusIcon(verificationStatus);
-	$: fundingProgress = campaign
-		? ((campaign.funds_raised / campaign.funding_goal) * 100).toFixed(1)
-		: '0';
+    $: StatusIcon = getStatusIcon(verificationStatus);
+    $: fundingProgress = campaign ? ((campaign.funds_raised / campaign.funding_goal) * 100) : 0;
+    $: isGoalAchieved = campaign && campaign.funds_raised >= campaign.funding_goal;
+    $: remainingToGoal = campaign ? Math.max(0, campaign.funding_goal - campaign.funds_raised) : 0;
+
 </script>
 
 <div class="py-6" transition:fade>
@@ -168,21 +173,165 @@
 			</div>
 
 			<!-- Campaign Header -->
-			<div class="md:flex md:items-center md:justify-between mb-8">
-				<div class="flex-1 min-w-0">
-					<h1 class="text-2xl font-bold text-gray-900 truncate">
-						{campaign.company_name}
-					</h1>
-					<div class="mt-1 flex items-center">
-						<span
-							class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium
-                            ${getStatusColor(verificationStatus)}`}
-						>
-							{verificationStatus.charAt(0).toUpperCase() + verificationStatus.slice(1)}
-						</span>
-					</div>
-				</div>
+			<div class="mb-8">
+                <div class="md:flex md:items-center md:justify-between">
+                    <div class="flex-1 min-w-0">
+                        <h1 class="text-2xl font-bold text-gray-900 truncate">
+                            {campaign.company_name}
+                        </h1>
+                        <div class="mt-1 flex items-center space-x-2">
+                            <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium
+                                ${getStatusColor(verificationStatus)}`}>
+                                {verificationStatus.charAt(0).toUpperCase() + verificationStatus.slice(1)}
+                            </span>
+                            {#if isGoalAchieved}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                    Goal Achieved
+                                </span>
+                            {/if}
+                        </div>
+                    </div>
+                    {#if verificationStatus === 'verified'}
+                        <div class="mt-4 flex md:ml-4 md:mt-0">
+                            
+                            <!-- <a    href="/dashboard/startup/campaign/edit"
+                                class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700" aria-disabled=""
+                            >
+                                Update Campaign
+                            </a> -->
+                        </div>
+                    {/if}
+                </div>
+            </div>
+
+			<!-- Enhanced Stats Grid -->
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                <!-- Funding Progress -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <DollarSign class="h-6 w-6 text-gray-400" />
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">
+                                        Total Raised
+                                    </dt>
+                                    <dd class="flex items-baseline">
+                                        <div class="text-2xl font-semibold text-gray-900">
+                                            {formatCurrency(campaign.funds_raised)}
+                                        </div>
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-5 py-3">
+                        <div class="text-sm text-gray-500">
+                            {isGoalAchieved ? 'Exceeded goal by ' : 'Remaining: '}
+                            <span class="font-medium text-gray-900">
+                                {formatCurrency(isGoalAchieved ? 
+                                    campaign.funds_raised - campaign.funding_goal : 
+                                    remainingToGoal)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+				<!-- Funding Goal -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <Target class="h-6 w-6 text-gray-400" />
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">
+                                        Funding Goal
+                                    </dt>
+                                    <dd class="flex items-baseline">
+                                        <div class="text-2xl font-semibold text-gray-900">
+                                            {formatCurrency(campaign.funding_goal)}
+                                        </div>
+                                        <span class="ml-2 text-sm text-gray-500">
+                                            ({formatPercent(fundingProgress)} achieved)
+                                        </span>
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-5 py-3">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div
+                                class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                                style="width: {Math.min(fundingProgress, 100)}%"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Investors -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <Users class="h-6 w-6 text-gray-400" />
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">
+                                        Total Investors
+                                    </dt>
+                                    <dd class="text-2xl font-semibold text-gray-900">
+                                        {campaign.investor_count}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-5 py-3">
+                        <div class="text-sm text-gray-500">
+                            Average investment: 
+                            <span class="font-medium text-gray-900">
+                                {formatCurrency(campaign.investor_count ? 
+                                    campaign.funds_raised / campaign.investor_count : 0)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Team -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <Users class="h-6 w-6 text-gray-400" />
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">
+                                        Team Size
+                                    </dt>
+                                    <dd class="text-2xl font-semibold text-gray-900">
+                                        {campaign.team_members.length}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-5 py-3">
+                        <a href="/dashboard/startup/team" class="text-sm text-indigo-600 hover:text-indigo-900">
+                            Manage team →
+                        </a>
+                    </div>
+                </div>
+            </div>
 			</div>
+
+			
+			
 
 			{#if verificationStatus === 'verified'}
 				<!-- Stats Grid - Only shown for verified campaigns -->
@@ -294,6 +443,6 @@
 					</dl>
 				</div>
 			</div>
-		</div>
+		
 	{/if}
 </div>

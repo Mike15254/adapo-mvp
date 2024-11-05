@@ -6,16 +6,10 @@
 	import { authStore } from '$lib/stores/auth.store';
 	import { loadingStore } from '$lib/stores/loading.store';
 	import type { UserRole } from '$lib/types/auth.types';
-	import {
-		validateEmail,
-		validateName,
-		validatePassword,
-		getPasswordStrength
-	} from '$lib/utils/form-validation';
+	import { FormState } from '$lib/utils/form-validation';
 	import Navbar from '$lib/components/Navbar.svelte';
 
 	// Component states
-	let error = '';
 	let isSubmitting = false;
 	let showPassword = false;
 	let showConfirmPassword = false;
@@ -30,9 +24,38 @@
 	let passwordStrength: 'weak' | 'medium' | 'strong' = 'weak';
 
 	// Verification states
-	let canResendVerification = true;
-	let resendCountdown = 60;
+	interface SignupError {
+    type: 'VALIDATION' | 'EMAIL_EXISTS' | 'WEAK_PASSWORD' | 'SERVER_ERROR' | 'NETWORK_ERROR';
+    message: string;
+}
 
+function handleSignupError(err: any): SignupError {
+    console.log('Signup Error:', err); // For debugging
+
+    const message = err?.message?.toLowerCase() || '';
+
+    if (message.includes('email') && message.includes('exists')) {
+        return {
+            type: 'EMAIL_EXISTS',
+            message: 'This email is already registered. Please try logging in instead.'
+        };
+    } else if (message.includes('password')) {
+        return {
+            type: 'WEAK_PASSWORD',
+            message: 'Password does not meet the requirements. Please check and try again.'
+        };
+    } else if (message.includes('network') || message.includes('connection')) {
+        return {
+            type: 'NETWORK_ERROR',
+            message: 'Connection error. Please check your internet and try again.'
+        };
+    } else {
+        return {
+            type: 'SERVER_ERROR',
+            message: 'Something went wrong. Please try again later.'
+        };
+    }
+}
 	// Reactive declarations
 	$: currentStep = $onboardingStore.currentStep;
 	$: userData = $onboardingStore.userData;
@@ -44,47 +67,32 @@
 		isLastNameValid &&
 		passwordStrength !== 'weak';
 
+
+
 	// Functions
 	function selectType(type: UserRole) {
 		selectedType = type;
 		onboardingStore.updateUserData({ role: type });
 		nextStep();
 	}
-
+	const formState = new FormState({
+		minLength: 8,
+		requireUppercase: true,
+		requireLowercase: true,
+		requireNumbers: true,
+		requireSpecialChars: true
+	});
 	// Update the validateForm function
 	function validateForm(field?: string) {
-		if (!field || field === 'email') {
-			isEmailValid = validateEmail(userData.email || '');
-		}
-		if (!field || field === 'firstName') {
-			isFirstNameValid = validateName(userData.firstName || '');
-		}
-		if (!field || field === 'lastName') {
-			isLastNameValid = validateName(userData.lastName || '');
-		}
-		if (!field || field === 'password') {
-			isPasswordValid = validatePassword(userData.password || '');
-			passwordStrength = getPasswordStrength(userData.password || '');
-			if (userData.passwordConfirm) {
-				isPasswordMatch = userData.password === userData.passwordConfirm;
-			}
-		}
-		if (!field || field === 'passwordConfirm') {
-			isPasswordMatch = (userData.password || '') === (userData.passwordConfirm || '');
-		}
+		const validation = formState.validateForm(userData, field as keyof typeof userData);
 
-		// Update form validity
-		isFormValid =
-			isEmailValid &&
-			isPasswordValid &&
-			isPasswordMatch &&
-			isFirstNameValid &&
-			isLastNameValid &&
-			!!userData.firstName &&
-			!!userData.lastName &&
-			!!userData.email &&
-			!!userData.password &&
-			!!userData.passwordConfirm;
+		isEmailValid = validation.isEmailValid;
+		isFirstNameValid = validation.isFirstNameValid;
+		isLastNameValid = validation.isLastNameValid;
+		isPasswordValid = validation.passwordValidation.isValid;
+		passwordStrength = validation.passwordValidation.strength;
+		isPasswordMatch = validation.isPasswordMatch;
+		isFormValid = validation.isFormValid;
 	}
 
 	async function handleSubmit() {
@@ -124,31 +132,69 @@
 		}
 	}
 
-	async function handleResendVerification() {
-		if (!canResendVerification || !userData.email) return;
+	export let email: string;
 
-		try {
-			isSubmitting = true;
-			loadingStore.startLoading('action', 'Sending verification email...');
+	let canResendVerification = true;
+	let isResendingVerification = false;
+	let resendCountdown = 30;
+	let error: string | null = null;
+	let successMessage: string | null = null;
+  let resendAttempts = 0; // Track number of resend attempts
 
-			await authStore.resendVerification(userData.email);
 
-			canResendVerification = false;
-			const timer = setInterval(() => {
-				resendCountdown--;
-				if (resendCountdown <= 0) {
-					clearInterval(timer);
-					canResendVerification = true;
-					resendCountdown = 60;
-				}
-			}, 1000);
-		} catch (err: any) {
-			error = err.message;
-		} finally {
-			isSubmitting = false;
-			loadingStore.stopLoading('action');
-		}
-	}
+  async function handleResendVerification() {
+    console.log('Starting resend verification process');
+    console.log('Current state:', {
+      canResend: canResendVerification,
+      isResending: isResendingVerification,
+      email: userData.email,
+      attempts: resendAttempts
+    });
+
+    if (!canResendVerification || !userData.email) {
+      console.log('Resend blocked:', {
+        canResend: canResendVerification,
+        hasEmail: !!userData.email
+      });
+      return;
+    }
+
+    try {
+      isResendingVerification = true;
+      console.log('Sending verification request to server');
+      
+      const response = await authStore.resendVerification(userData.email);
+      console.log('Server response:', response);
+      
+      // Increment attempt counter
+      resendAttempts++;
+      console.log('Resend attempt:', resendAttempts);
+
+      // Show success message with attempt count
+      successMessage = `Verification email sent successfully! (Attempt ${resendAttempts})`;
+      setTimeout(() => successMessage = null, 5000);
+
+      // Start countdown
+      canResendVerification = false;
+      const timer = setInterval(() => {
+        resendCountdown--;
+        if (resendCountdown <= 0) {
+          console.log('Countdown finished, enabling resend');
+          clearInterval(timer);
+          canResendVerification = true;
+          resendCountdown = 30;
+        }
+      }, 1000);
+
+    } catch (err: any) {
+      console.error('Resend verification error:', err);
+      error = err.message || 'Failed to send verification email';
+      setTimeout(() => error = null, 5000);
+    } finally {
+      console.log('Resend process completed');
+      isResendingVerification = false;
+    }
+  }
 
 	function nextStep() {
 		if (currentStep === 2 && !isFormValid) return;
@@ -909,127 +955,185 @@
 					</div>
 				{/if}
 				<!-- Step 3: Email Verification -->
-				{#if currentStep === 3}
-					<div class="max-w-xl mx-auto pt-12" in:fade={{ duration: 300 }}>
-						<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-							<!-- Success Icon -->
-							<div
-								class="mx-auto w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-6"
-							>
-								<svg
-									class="w-8 h-8 text-indigo-600"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76"
-									/>
-								</svg>
-							</div>
+				<!-- Step 3: Email Verification -->
+{#if currentStep === 3}
+<div class="max-w-xl mx-auto pt-12" in:fade={{ duration: 300 }}>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+        <!-- Header Section -->
+        <div class="text-center mb-8">
+            <!-- Email Icon -->
+            <div class="mx-auto w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76" />
+                </svg>
+            </div>
 
-							<h2 class="text-2xl font-bold text-gray-900 mb-4">Verify your email address</h2>
+            <h2 class="text-2xl font-bold text-gray-900 mb-3">Verify your email address</h2>
+            <p class="text-gray-600 mb-2">We've sent a verification link to:</p>
+            <p class="text-lg font-medium text-gray-900">{userData.email}</p>
+        </div>
 
-							<!-- Email Info -->
-							<div class="mb-8">
-								<p class="text-gray-600">We've sent a verification link to:</p>
-								<p class="text-lg font-medium text-gray-900 mt-2">
-									{userData.email}
-								</p>
-							</div>
+        <!-- Notification Messages -->
+        {#if successMessage || error}
+            <div class="mb-6">
+                {#if successMessage}
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4" transition:fade>
+                        <div class="flex">
+                            <svg class="h-5 w-5 text-green-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                            <p class="ml-3 text-sm text-green-700">{successMessage}</p>
+                        </div>
+                    </div>
+                {/if}
 
-							<!-- Instructions -->
-							<div class="bg-indigo-50 rounded-lg p-4 mb-8">
-								<div class="flex items-start">
-									<div class="flex-shrink-0 mt-0.5">
-										<svg class="h-5 w-5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
-											<path
-												fill-rule="evenodd"
-												d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-												clip-rule="evenodd"
-											/>
-										</svg>
-									</div>
-									<div class="ml-3">
-										<h3 class="text-sm font-medium text-indigo-800">Next steps:</h3>
-										<div class="mt-2 text-sm text-indigo-700">
-											<ul class="list-disc list-inside space-y-1">
-												<li>Check your email inbox</li>
-												<li>Click the verification link in the email</li>
-												<li>Return here to continue</li>
-											</ul>
-										</div>
-									</div>
-								</div>
-							</div>
+                {#if error}
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4" transition:fade>
+                        <div class="flex">
+                            <svg class="h-5 w-5 text-red-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                            <p class="ml-3 text-sm text-red-700">{error}</p>
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        {/if}
 
-							<!-- Resend Button -->
-							<div class="space-y-4">
-								<p class="text-sm text-gray-600">
-									{#if canResendVerification}
-										Didn't receive the email?
-									{:else}
-										You can request another email in {resendCountdown}s
-									{/if}
-								</p>
-								<button
-									type="button"
-									class="inline-flex items-center justify-center px-4 py-2 border border-transparent
-                       text-sm font-medium rounded-md text-indigo-700 bg-indigo-100
-                       hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2
-                       focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-colors duration-200"
-									on:click={handleResendVerification}
-									disabled={!canResendVerification || isSubmitting}
-								>
-									{#if isSubmitting}
-										<svg class="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
-											<circle
-												class="opacity-25"
-												cx="12"
-												cy="12"
-												r="10"
-												stroke="currentColor"
-												stroke-width="4"
-											/>
-											<path
-												class="opacity-75"
-												fill="currentColor"
-												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-											/>
-										</svg>
-										Sending...
-									{:else}
-										Resend verification email
-									{/if}
-								</button>
-							</div>
+        <!-- Instructions Box -->
+        <div class="bg-indigo-50 rounded-lg p-4 mb-6">
+            <div class="flex">
+                <svg class="h-5 w-5 text-indigo-500 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clip-rule="evenodd" />
+                </svg>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-indigo-800">Next steps:</h3>
+                    <ul class="mt-2 text-sm text-indigo-700 list-disc list-inside space-y-1">
+                        <li>Check your email inbox</li>
+                        <li>Click the verification link in the email</li>
+                        <li>Return here to continue</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
 
-							<!-- Additional Help -->
-							<div class="mt-8 pt-6 border-t border-gray-200">
-								<p class="text-sm text-gray-500">
-									Check your spam folder if you don't see the email in your inbox.
-								</p>
-								<div class="mt-4 flex justify-center space-x-4">
-									<a href="/contact" class="text-sm text-indigo-600 hover:text-indigo-500">
-										Need help?
-									</a>
-									<span class="text-gray-300">|</span>
-									<button
-										type="button"
-										class="text-sm text-indigo-600 hover:text-indigo-500"
-										on:click={() => goto('/login')}
-									>
-										Return to login
-									</button>
-								</div>
-							</div>
+		<div class="space-y-4">
+			<!-- Success Message with Attempt Counter -->
+			{#if successMessage}
+				<div class="bg-green-50 border border-green-200 rounded-lg p-4" transition:fade>
+					<div class="flex">
+						<svg class="h-5 w-5 text-green-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+							<path fill-rule="evenodd"
+								d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+								clip-rule="evenodd" />
+						</svg>
+						<div class="ml-3">
+							<p class="text-sm text-green-700">{successMessage}</p>
+							<p class="text-xs text-green-600 mt-1">
+								Next resend available in {resendCountdown} seconds
+							</p>
 						</div>
 					</div>
-				{/if}
+				</div>
+			{/if}
+		
+			<!-- Error Message with Details -->
+			{#if error}
+				<div class="bg-red-50 border border-red-200 rounded-lg p-4" transition:fade>
+					<div class="flex">
+						<svg class="h-5 w-5 text-red-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+							<path fill-rule="evenodd"
+								d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+								clip-rule="evenodd" />
+						</svg>
+						<div class="ml-3">
+							<p class="text-sm text-red-700">{error}</p>
+							<p class="text-xs text-red-600 mt-1">
+								Please try again in {resendCountdown} seconds
+							</p>
+						</div>
+					</div>
+				</div>
+			{/if}
+		
+			<!-- Resend Button with Status -->
+			<div class="text-center space-y-3">
+				<p class="text-sm text-gray-600">
+					{#if canResendVerification}
+						Didn't receive the verification email? 
+						{#if resendAttempts > 0}
+							<span class="text-gray-500">(Sent {resendAttempts} {resendAttempts === 1 ? 'time' : 'times'})</span>
+						{/if}
+					{:else}
+						You can request another email in <span class="font-medium">{resendCountdown}s</span>
+					{/if}
+				</p>
+		
+				<button
+					type="button"
+					class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md
+						   shadow-sm text-sm font-medium
+						   {canResendVerification 
+							 ? 'text-white bg-indigo-600 hover:bg-indigo-700' 
+							 : 'text-gray-500 bg-gray-100 border-gray-200'}
+						   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+						   disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+					disabled={!canResendVerification || isResendingVerification}
+					on:click={handleResendVerification}
+				>
+					{#if isResendingVerification}
+						<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+							<path class="opacity-75" fill="currentColor"
+								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+						</svg>
+						<span>Sending verification email... ({resendAttempts + 1})</span>
+					{:else if canResendVerification}
+						<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+								d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+						</svg>
+						<span>Resend verification email {resendAttempts > 0 ? `(${resendAttempts + 1})` : ''}</span>
+					{:else}
+						<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+								d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						<span>Wait {resendCountdown}s to resend</span>
+					{/if}
+				</button>
+			</div>
+		</div>
+
+        <!-- Footer Help Section -->
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <p class="text-sm text-center text-gray-500 mb-4">
+                Check your spam folder if you don't see the email in your inbox.
+            </p>
+            <div class="flex justify-center space-x-4">
+                <a href="/contact" class="text-sm text-indigo-600 hover:text-indigo-500">
+                    Need help?
+                </a>
+                <span class="text-gray-300">|</span>
+                <button
+                    type="button"
+                    class="text-sm text-indigo-600 hover:text-indigo-500"
+                    on:click={() => goto('/login')}
+                >
+                    Return to login
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{/if}
 			</main>
 		</div>
 	</div>

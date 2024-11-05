@@ -1,5 +1,3 @@
-// tailwind.config.js
-const defaultTheme = require('tailwindcss/defaultTheme')
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -12,7 +10,7 @@ export default {
         background: "#FCFCFC",
       },
       fontFamily: {
-        sans: ["Open Sans", ...defaultTheme.fontFamily.sans],
+        sans: ["Open Sans"],
       },
       
     },

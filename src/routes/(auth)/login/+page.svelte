@@ -27,11 +27,10 @@
 		| 'SERVER_ERROR'
 		| 'VALIDATION_ERROR';
 
-	interface FormError {
-		type: ErrorType;
-		message: string;
-	}
-
+		interface FormError {
+    type: 'INVALID_CREDENTIALS' | 'UNVERIFIED_EMAIL' | 'ACCOUNT_DISABLED' | 'SERVER_ERROR' | 'VALIDATION_ERROR';
+    message: string;
+}
 	interface FieldErrors {
 		email: string;
 		password: string;
@@ -76,67 +75,73 @@
 
 	// Error handling
 	function handleAuthError(err: any) {
-		const message = err?.message || 'An unexpected error occurred';
+    console.log('Login Error:', err); // For debugging
 
-		if (message.includes('password') || message.includes('email')) {
-			error = {
-				type: 'INVALID_CREDENTIALS',
-				message: 'Incorrect email or password'
-			};
-		} else if (message.includes('verification')) {
-			error = {
-				type: 'UNVERIFIED_EMAIL',
-				message: 'Please verify your email before logging in'
-			};
-		} else if (message.includes('disabled') || message.includes('suspended')) {
-			error = {
-				type: 'ACCOUNT_DISABLED',
-				message: 'Your account has been disabled'
-			};
-		} else {
-			error = {
-				type: 'SERVER_ERROR',
-				message: 'An unexpected error occurred'
-			};
-		}
-	}
+    const message = err?.message?.toLowerCase() || '';
+    
+    if (message.includes('verification') || message.includes('verify')) {
+        error = {
+            type: 'UNVERIFIED_EMAIL',
+            message: 'Please verify your email before logging in. Need another verification email?',
+        };
+    } else if (message.includes('password') || message.includes('email') || message.includes('credentials')) {
+        error = {
+            type: 'INVALID_CREDENTIALS',
+            message: 'Invalid email or password. Please try again.',
+        };
+    } else if (message.includes('suspended') || message.includes('disabled')) {
+        error = {
+            type: 'ACCOUNT_DISABLED',
+            message: 'Your account has been disabled. Please contact support.',
+        };
+    } else {
+        error = {
+            type: 'SERVER_ERROR',
+            message: 'An unexpected error occurred. Please try again later.',
+        };
+    }
+}
 
-	// Form submission
-	async function handleSubmit() {
-		if (!validateForm()) return;
+async function handleSubmit() {
+    if (!validateForm()) return;
 
-		isSubmitting = true;
-		error = null;
+    isSubmitting = true;
+    error = null;
 
-		try {
-			// Attempt login
-			await authStore.login(email, password);
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
 
-			// Handle remember me
-			if (browser) {
-				if (rememberMe) {
-					localStorage.setItem('rememberedEmail', email);
-					localStorage.setItem('rememberMe', 'true');
-				} else {
-					localStorage.removeItem('rememberedEmail');
-					localStorage.setItem('rememberMe', 'false');
-				}
-			}
+        const data = await response.json();
 
-			// // Get redirect URL if exists
-			// const params = new URLSearchParams(window.location.search);
-			// const redirect = params.get('redirect') || 'startup';
+        if (!response.ok) {
+            throw new Error(data.message);
+        }
 
-			// // Redirect user
-			// goto(redirect);
-		} catch (err) {
-			handleAuthError(err);
-			console.error('Login error:', err);
-		} finally {
-			isSubmitting = false;
-		}
-	}
+        // Handle remember me
+        if (browser) {
+            if (rememberMe) {
+                localStorage.setItem('rememberedEmail', email);
+                localStorage.setItem('rememberMe', 'true');
+            } else {
+                localStorage.removeItem('rememberedEmail');
+                localStorage.setItem('rememberMe', 'false');
+            }
+        }
 
+        // Update auth store
+        await authStore.login(email, password);
+
+    } catch (err) {
+        handleAuthError(err);
+        console.error('Login error:', err);
+    } finally {
+        isSubmitting = false;
+    }
+}
 	// Resend verification
 	async function handleResendVerification(userEmail: string) {
 		try {
@@ -206,44 +211,53 @@
 		<div class="bg-white py-8 px-4 shadow-2xl sm:rounded-lg sm:px-10 border border-gray-100">
 			<form bind:this={formElement} class="space-y-6" on:submit|preventDefault={handleSubmit}>
 				{#if error}
-					<div
-						class="rounded-md bg-red-50 p-4 shadow-sm"
-						in:fly={{ y: -20, duration: 300 }}
-						out:fade
-						role="alert"
-					>
-						<div class="flex">
-							<div class="flex-shrink-0">
-								<svg
-									class="h-5 w-5 text-red-400"
-									viewBox="0 0 20 20"
-									fill="currentColor"
-									aria-hidden="true"
-								>
-									<path
-										fill-rule="evenodd"
-										d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-										clip-rule="evenodd"
-									/>
-								</svg>
-							</div>
-							<div class="ml-3">
-								<!-- Change this line -->
-								<p class="text-sm font-medium text-red-800">{error.message}</p>
-
-								{#if error.type === 'UNVERIFIED_EMAIL'}
-									<button
-										class="mt-2 text-sm text-red-800 underline"
-										on:click={() => handleResendVerification(email)}
-										disabled={isSubmitting}
-									>
-										Resend verification email
-									</button>
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/if}
+    <div 
+        class="rounded-md {error.type === 'UNVERIFIED_EMAIL' ? 'bg-yellow-50' : 'bg-red-50'} p-4"
+        transition:fly={{ y: -20, duration: 300 }}
+        role="alert"
+    >
+        <div class="flex">
+            <div class="flex-shrink-0">
+                {#if error.type === 'UNVERIFIED_EMAIL'}
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                {:else}
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                {/if}
+            </div>
+            <div class="ml-3">
+                <p class="text-sm font-medium {error.type === 'UNVERIFIED_EMAIL' ? 'text-yellow-800' : 'text-red-800'}">
+                    {error.message}
+                </p>
+                {#if error.type === 'UNVERIFIED_EMAIL'}
+                    <div class="mt-2">
+                        <button
+                            type="button"
+                            class="text-sm font-medium text-yellow-800 hover:text-yellow-700 underline"
+                            on:click={() => handleResendVerification(email)}
+                            disabled={isSubmitting}
+                        >
+                            Resend verification email
+                        </button>
+                    </div>
+                {/if}
+                {#if error.type === 'INVALID_CREDENTIALS'}
+                    <p class="mt-1 text-sm text-red-700">
+                        Forgot your password? <a href="/reset-password" class="underline hover:text-red-600">Reset it here</a>
+                    </p>
+                {/if}
+                {#if error.type === 'ACCOUNT_DISABLED'}
+                    <p class="mt-1 text-sm text-red-700">
+                        <a href="/contact" class="underline hover:text-red-600">Contact support</a> for assistance
+                    </p>
+                {/if}
+            </div>
+        </div>
+    </div>
+{/if}
 
 				<div class="space-y-2">
 					<label for="email" class="block text-sm font-medium text-gray-700"> Email address </label>

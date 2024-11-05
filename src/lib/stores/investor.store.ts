@@ -216,6 +216,50 @@ function createInvestorStore() {
                 throw error;
             }
         },
+        // Add to investor.store.ts
+refreshWallet: async (userId: string) => {
+    try {
+        // Fetch updated wallet data
+        const walletData = await pb.collection('wallets').getFirstListItem(`user="${userId}"`);
+        
+        // Fetch latest transactions
+        const transactionsData = await pb.collection('wallet_transactions').getList(1, 50, {
+            filter: `user="${userId}"`,
+            sort: '-created'
+        });
+        
+        const transactions: WalletTransaction[] = transactionsData.items.map(t => ({
+            ...t,
+            user: t.user,
+            type: t.type as TransactionType,
+            amount: t.amount,
+            status: t.status as TransactionStatus,
+            reference: t.reference,
+            description: t.description,
+            payment_method: t.payment_method,
+            metadata: t.metadata
+        }));
+
+        const updatedWallet: Wallet = {
+            ...walletData,
+            user: walletData.user,
+            balance: walletData.balance,
+            currency: walletData.currency,
+            status: walletData.status,
+            transactions
+        };
+
+        update(state => ({
+            ...state,
+            wallet: updatedWallet
+        }));
+
+        return updatedWallet;
+    } catch (error: any) {
+        console.error('Refresh wallet error:', error);
+        throw error;
+    }
+},
 
         reset: () => set(initialState)
     };

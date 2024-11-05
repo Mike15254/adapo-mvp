@@ -88,45 +88,25 @@ export interface Investment {
 export interface InvestorProfile extends Record {
     user: string;
     profession?: string;
-    verificationStatus: VerificationStatus;
-    type: InvestorType;
-    investment_history: Investment[];
+    verificationStatus: 'pending' | 'verified' | 'unverified';
+    type: 'individual' | 'institution';
+    investment_history: any[]; // JSON field
     id_number?: string;
     kra_pin?: string;
-    verification_documents?: string[];
+    verification_documents?: string;
     verification_notes?: string;
-    investment_focus: IndustryType;
-    investment_range: InvestmentRange;
+    investment_focus: 'technology' | 'healthcare' | 'finance' | 'education' | 'agriculture' | 'other';
+    investment_range: '0-100k' | '100k-500k' | '500k-1M' | '1M-5M';
     total_investments: number;
     active_investments: number;
-    investment_preferences: {
-        preferred_industries?: IndustryType[];
-        min_investment?: number;
-        max_investment?: number;
-        risk_tolerance?: 'low' | 'medium' | 'high';
+    investment_preferences: Record<string, any>; 
     };
-}
 
-export interface StartupProfile extends Record {
-    user: string;
-    company_name: string;
-    business_registration_number?: string;
-    description: string;
-    industry: IndustryType;
-    verification_documents?: string[];
-    verification_status: StartupVerificationStatus;
-    team_members: TeamMember[];
-    logo?: string;
-    social_links?: SocialLinks;
-    funding_raised_total: number;
-    investor_count: number;
-    founded_Date?: string;
-    pitch_deck?: string;
-    funding_goal: number;
-    funds_raised: number;
-}
+
 
 export interface WalletTransaction extends Record {
+    id: string;
+    created: string | number | Date;
     user: string;
     type: TransactionType;
     amount: number;
@@ -134,7 +114,15 @@ export interface WalletTransaction extends Record {
     reference: string;
     description?: string;
     payment_method?: string;
-    metadata?: Record<string, any>;
+    metadata?: {
+        campaign_id?: string;
+        terms_accepted?: boolean;
+        risks_acknowledged?: boolean;
+        timestamp?: string;
+        error?: string;
+        failed_at?: string;
+        monthly_key?: string; // Format: "YYYY-MM"
+    };
 }
 
 export interface Wallet extends Record {
@@ -174,14 +162,29 @@ export interface InvestorDashboardData extends DashboardData {
     investments: Investment[];
     available_campaigns: StartupProfile[];
 }
-
+export interface FundingStats {
+    total_raised: number;
+    total_investors: number;
+    last_investment_date?: string;
+    transactions: string[]; // Array of transaction IDs
+    monthly_stats: {
+        [key: string]: {
+            amount: number;
+            count: number;
+        }
+    };
+}
 export interface StartupProfile extends Record {
+    id: string;
     user: string;
     company_name: string;
     business_registration_number?: string;
     description: string;
     industry: IndustryType;
-    verification_documents?: string[];
+    verification_documents?: {
+        url: string;
+        name: string;
+    }[];
     verification_status: 'unverified' | 'documents_pending' | 'under_review' | 'change_requested' | 'verified' | 'rejected';
     team_members: Array<{
         name: string;
@@ -198,7 +201,26 @@ export interface StartupProfile extends Record {
     funding_raised_total: number;
     investor_count: number;
     founded_Date?: string;
-    pitch_deck?: string;
+    pitch_deck?: {
+        url: string;
+        name: string;
+    };
     funding_goal: number;
+    funding_stats: FundingStats;
     funds_raised: number;
+    min_investment: number;
+}
+
+export function mapRecordToWalletTransaction(record: Record): WalletTransaction {
+    return {
+        ...record,
+        user: record.user,
+        type: record.type as TransactionType,
+        amount: record.amount,
+        status: record.status as TransactionStatus,
+        reference: record.reference,
+        description: record.description,
+        payment_method: record.payment_method,
+        metadata: record.metadata
+    };
 }
