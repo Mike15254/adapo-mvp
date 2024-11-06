@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import image1 from '$lib/assets/eduTech.avif'
+	import Navbar from '$lib/components/Navbar.svelte';
 
   export let project = {
       id: "edutech",
@@ -57,6 +58,9 @@
 <svelte:head>
   <title>{project.title} | ADAPO</title>
 </svelte:head>
+<div  class="sticky top-0 z-50">
+    <Navbar />
+</div>
 
 <div class="bg-gray-100 min-h-screen">
   <div class="w-full h-64 bg-cover bg-center" style="background-image: url({image1});">

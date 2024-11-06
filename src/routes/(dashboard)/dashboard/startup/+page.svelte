@@ -23,7 +23,7 @@
 	function formatCurrency(amount: number): string {
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',
-			currency: 'USD',
+			currency: 'KES',
 			minimumFractionDigits: 0,
 			maximumFractionDigits: 0
 		}).format(amount);
@@ -211,7 +211,7 @@
                     <div class="p-5">
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
-                                <DollarSign class="h-6 w-6 text-gray-400" />
+                                <!-- <DollarSign class="h-6 w-6 text-gray-400" /> -->
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
@@ -273,7 +273,7 @@
                 </div>
 
                 <!-- Investors -->
-                <div class="bg-white overflow-hidden shadow rounded-lg">
+                <!-- <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
@@ -300,7 +300,7 @@
                             </span>
                         </div>
                     </div>
-                </div>
+                </div> -->
 
                 <!-- Team -->
                 <div class="bg-white overflow-hidden shadow rounded-lg">
@@ -341,7 +341,7 @@
 						<div class="p-5">
 							<div class="flex items-center">
 								<div class="flex-shrink-0">
-									<DollarSign class="h-6 w-6 text-gray-400" />
+									<!-- <DollarSign class="h-6 w-6 text-gray-400" /> -->
 								</div>
 								<div class="ml-5 w-0 flex-1">
 									<dl>

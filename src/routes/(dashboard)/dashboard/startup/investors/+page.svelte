@@ -64,33 +64,14 @@
 
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-            <!-- Total Investors -->
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <Users class="h-6 w-6 text-gray-400" />
-                        </div>
-                        <div class="ml-5 w-0 flex-1">
-                            <dl>
-                                <dt class="text-sm font-medium text-gray-500 truncate">
-                                    Total Investors
-                                </dt>
-                                <dd class="text-2xl font-semibold text-gray-900">
-                                    {stats.totalInvestors}
-                                </dd>
-                            </dl>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            
 
             <!-- Total Investment -->
             <div class="bg-white overflow-hidden shadow rounded-lg">
                 <div class="p-5">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
-                            <DollarSign class="h-6 w-6 text-gray-400" />
+                            <!-- <DollarSign class="h-6 w-6 text-gray-400" /> -->
                         </div>
                         <div class="ml-5 w-0 flex-1">
                             <dl>

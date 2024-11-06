@@ -98,7 +98,7 @@
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <DollarSign class="h-6 w-6 text-gray-400" />
+                        <!-- <DollarSign class="h-6 w-6 text-gray-400" /> -->
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
@@ -170,7 +170,7 @@
                                     {:else if transaction.type === 'withdrawal'}
                                         <ArrowDownRight class="h-6 w-6 text-red-500" />
                                     {:else}
-                                        <DollarSign class="h-6 w-6 text-blue-500" />
+                                        <!-- <DollarSign class="h-6 w-6 text-blue-500" /> -->
                                     {/if}
                                 </div>
                                 <div class="flex-1 min-w-0">
@@ -189,7 +189,7 @@
                                     <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                         ${transaction.type === 'deposit' ? 'bg-green-100 text-green-800' : 
                                           transaction.type === 'withdrawal' ? 'bg-red-100 text-red-800' : 
-                                          'bg-blue-100 text-blue-800'}`}>
+                                          'bg-blue-100 text-blue-800'}` }>
                                         {formatCurrency(transaction.amount)}
                                     </span>
                                     <span class={`text-xs ${
